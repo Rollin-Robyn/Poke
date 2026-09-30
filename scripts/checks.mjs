@@ -406,12 +406,15 @@ console.log('\ndiamonds and event tickets');
   Object.assign(e, g.reduce(e, { type: 'SET_TEAM', uids: [e.mons[0].uid] }));
   e.eventTokens = 0;
   for (let i = 0; i < 600 && e.stats.battlesWon < 60; i++) {
-    if (!e.battle.enemy) {
-      g.simulate(e, 2);
-      continue;
-    }
+    g.simulate(e, 2);
+    if (!e.battle.enemy) continue;
+    // patch the party up between fights: this block counts encounters, it is
+    // not a test of attrition, and a wipe would park the run on a rest timer
+    for (const p of e.battle.players) p.hp = p.maxHp;
     const lead = e.battle.players.find((p) => p.hp > 0);
+    if (!lead) break;
     const mon = e.mons.find((m) => m.uid === lead.uid);
+    if (!mon) break;
     e.battle.enemy.hp = 1; // one-shot it so the encounters tick over
     g.useMove(e, mon.uid, g.movesFor(mon.species, mon.level)[0].id);
   }
