@@ -1,10 +1,10 @@
-import { BIOME_BY_ID, BIOMES, type BiomeDef } from './content';
+import { BIOME_BY_ID, BIOMES, BIOME_TIERS, BIOME_TIER_BY_ID, type BiomeDef, type BiomeTier, type BiomeTierDef } from './content';
 import moveData from '../data/dex.json';
-import { DEX, DEX_IDS, RARITIES, entry, statsAt, type Rarity } from './dex';
-import { pickWeighted, rnd, rndInt, uid, clamp } from './rng';
+import { DEX, DEX_IDS, MAX_LEVEL, RARITIES, entry, statsAt, type Rarity } from './dex';
+import { pick, pickWeighted, rnd, rndInt, uid, clamp } from './rng';
 import { typeMultiplier } from './typechart';
 import { ITEMS, type ItemDef } from './content';
-import type { BattleLogEntry, BattleState, GameState, Mon } from './state';
+import type { BattleLogEntry, BattleMon, BattleState, GameState, Mon } from './state';
 
 // ------------------------------------------------------------------ balls ---
 /**
@@ -139,37 +139,110 @@ export interface MoveDef {
 
 export const MOVES: Record<string, MoveDef> = (moveData as unknown as { moves: Record<string, MoveDef> }).moves;
 
-/** The four moves a monster of this species knows. */
-export function movesFor(species: string): MoveDef[] {
-  const ids = entry(species).moves ?? [];
-  return ids.map((id) => MOVES[id]).filter(Boolean);
+/** How many moves a monster keeps - the games' limit of four. */
+export const MOVES_PER_MON = 4;
+
+/**
+ * The moves a monster knows right now: everything in its species' learnset up
+ * to its level, keeping only the four it learned most recently (older moves
+ * are forgotten, exactly as in the games). A freshly hatched monster therefore
+ * knows one or two weak moves and grows into the rest.
+ */
+export function movesFor(species: string, level = MAX_LEVEL): MoveDef[] {
+  const learnset = entry(species).learnset ?? [];
+  const lvl = clamp(Math.floor(level), 1, MAX_LEVEL);
+  const known: string[] = [];
+  for (const [id, at] of learnset) {
+    if (at <= lvl) known.push(id);
+  }
+  return known
+    .slice(-MOVES_PER_MON)
+    .map((id) => MOVES[id])
+    .filter(Boolean);
 }
 
-/** Cooldown in seconds for a move - heavier moves take longer. */
-export function moveCooldown(move: MoveDef, speed: number): number {
-  const base = 1.1 + move.power / 90;
-  return Math.max(0.6, base - Math.min(1.1, speed / 420));
+/** Every move a species can learn over its whole life, weakest first. */
+export function learnsetOf(species: string): { move: MoveDef; level: number }[] {
+  return (entry(species).learnset ?? [])
+    .map(([id, level]) => ({ move: MOVES[id], level }))
+    .filter((x) => x.move);
 }
 
 // --------------------------------------------------------------- encounters --
+// Battles are turn based: nothing happens until the player picks a move or
+// throws a ball, and then both sides act in speed order. The tick only walks
+// the next wild monster in after a beat and rests a wiped party.
+
+/** Seconds between two wild encounters. */
+export const ENCOUNTER_DELAY = 1.2;
+/** Seconds the party spends resting after a wipe before it can fight again. */
+export const WIPE_REST = 5;
+/** How much of the area's level band a cleared encounter is worth. */
+export const LEVEL_BONUS_PER_CLEAR = 1 / 5;
+export const MAX_LEVEL_BONUS = 20;
+
 export function biomeById(id: string): BiomeDef {
   return BIOME_BY_ID[id] ?? BIOMES[0];
 }
 
-/** Species that can show up in a biome: matching types, legendary-weighted down. */
-export function biomePool(biome: BiomeDef, allowLegendary = false): [string, number][] {
+export function tierOf(biome: BiomeDef): BiomeTierDef {
+  return BIOME_TIER_BY_ID[biome.tier] ?? BIOME_TIERS[0];
+}
+
+/** Wild monsters get stronger the longer an expedition runs. */
+export function levelBonus(cleared: number): number {
+  return Math.min(MAX_LEVEL_BONUS, Math.floor(cleared * LEVEL_BONUS_PER_CLEAR));
+}
+
+/** The level band of a biome right now, pushed up by encounters cleared. */
+export function biomeLevelRange(biome: BiomeDef, cleared: number): [number, number] {
+  const [lo, hi] = tierOf(biome).levelRange;
+  const bonus = levelBonus(cleared);
+  return [lo + bonus, hi + bonus];
+}
+
+/**
+ * Species that can show up in an area: matching types, weighted by the rarity
+ * table of the tier the area belongs to - common monsters in the quiet country,
+ * legendaries only on legendary ground.
+ */
+export function biomePool(biome: BiomeDef): [string, number][] {
   const pool: [string, number][] = [];
-  const rarityWeight: Record<Rarity, number> = {
-    common: 100, uncommon: 55, rare: 22, epic: 7, legendary: allowLegendary ? 0.6 : 0,
-  };
+  const rarityWeight = tierOf(biome).rarity;
   for (const id of DEX_IDS) {
     const e = DEX[id];
-    if (e.rarity === 'legendary' && !allowLegendary) continue;
-    if (e.stage > 1 && e.rarity !== 'legendary') continue; // keep wild spawns mostly basic
+    if (!rarityWeight[e.rarity]) continue;
+    // keep wild spawns mostly at the bottom of an evolution line
+    if (e.stage > 1 && e.rarity !== 'legendary') continue;
     if (!e.types.some((t) => biome.types.includes(t))) continue;
     pool.push([id, rarityWeight[e.rarity]]);
   }
   return pool.length ? pool : [['pidgey', 100]];
+}
+
+/**
+ * Which tier the trail leads to next. Clearing encounters is the only thing
+ * that opens the rarer tiers, and even then it is a chance, not a guarantee -
+ * the quiet country always stays on the table.
+ */
+export function rollBiomeTier(cleared: number, current: BiomeTier): BiomeTier {
+  const weights: [BiomeTier, number][] = [];
+  for (const t of BIOME_TIERS) {
+    if (cleared < t.unlockCleared) continue;
+    // staying where you are is a little easier than climbing
+    const w = Math.max(0.05, t.weight(cleared)) * (t.tier === current ? 1.35 : 1);
+    weights.push([t.tier, w]);
+  }
+  if (!weights.length) return 1;
+  return pickWeighted(weights);
+}
+
+/** A random area of a tier, so the same rarity still looks different. */
+export function randomBiomeOfTier(tier: BiomeTier, excludeId?: string): BiomeDef {
+  const inTier = BIOMES.filter((b) => b.tier === tier);
+  const fresh = inTier.filter((b) => b.id !== excludeId);
+  const pool = fresh.length ? fresh : inTier;
+  return pick(pool.length ? pool : [BIOMES[0]]);
 }
 
 function rollShiny(s: GameState): boolean {
@@ -178,21 +251,13 @@ function rollShiny(s: GameState): boolean {
   return Math.random() < base + bonus;
 }
 
-export function spawnEnemy(s: GameState, biome: BiomeDef, levelOverride?: number): {
+export function spawnEnemy(s: GameState, biome: BiomeDef, levelRange: [number, number]): {
   species: string; level: number; shiny: boolean;
 } {
-  const pool = biomePool(biome, biome.unlockLevel >= 48);
+  const pool = biomePool(biome);
   const species = pickWeighted(pool);
-  const [lo, hi] = biome.levelRange;
-  const level = levelOverride ?? rndInt(lo, hi);
+  const level = rndInt(levelRange[0], levelRange[1]);
   return { species, level, shiny: rollShiny(s) };
-}
-
-export function makeBattleMon(uidStr: string, level: number, species: string, iv: number, nature: string): {
-  uid: string; hp: number; maxHp: number; cooldown: number; moveCooldowns: Record<string, number>;
-} {
-  const stats = statsAt(species, level, nature, iv);
-  return { uid: uidStr, hp: stats.hp, maxHp: stats.hp, cooldown: rnd(0.2, 0.8), moveCooldowns: {} };
 }
 
 // ----------------------------------------------------------------- damage ---
@@ -204,40 +269,102 @@ export interface DamageResult {
   move: MoveDef;
 }
 
-/** Tuned so an auto-battle runs roughly 20-30 seconds. */
-export const DAMAGE_DIVISOR = 22;
+export interface Combatant {
+  species: string;
+  level: number;
+  nature: string;
+  iv?: number;
+}
 
-export function computeDamage(
-  attacker: { species: string; level: number; nature: string },
-  defenderSpecies: string,
-  level: number,
-  move?: MoveDef,
-): DamageResult {
-  const chosen = move ?? movesFor(attacker.species)[0];
-  const defTypes = entry(defenderSpecies).types;
-  const atkStats = statsAt(attacker.species, level, attacker.nature, 15);
-  const defStats = statsAt(defenderSpecies, level, 'hardy', 15);
+/** Same-type attack bonus: a move of one of the user's own types hits harder. */
+export const STAB = 1.5;
+export const CRIT_CHANCE = 0.0625;
+export const CRIT_MULTIPLIER = 1.5;
+/** Wild monsters hit a little softer, so a trained team can out-grind them. */
+export const WILD_DAMAGE_SCALE = 0.85;
+
+/**
+ * The main-series damage formula, trimmed of weather and abilities:
+ *
+ *   ((2 x level / 5 + 2) x power x offence / defence) / 50 + 2
+ *
+ * times type effectiveness, STAB, a critical and the 0.85-1.00 roll. It scales
+ * with level the way hit points do, so fights last a handful of turns at every
+ * level instead of the old "everything hits for 1".
+ */
+export function computeDamage(attacker: Combatant, defender: Combatant, move?: MoveDef): DamageResult {
+  const chosen = move ?? movesFor(attacker.species, attacker.level)[0];
+  const atkStats = statsAt(attacker.species, attacker.level, attacker.nature, attacker.iv ?? 15);
+  const defStats = statsAt(defender.species, defender.level, defender.nature, defender.iv ?? 15);
+  const defTypes = entry(defender.species).types;
   const eff = typeMultiplier(chosen.type, defTypes);
-  const crit = Math.random() < 0.0625;
-  const variance = rnd(0.88, 1.06);
+  const stab = entry(attacker.species).types.includes(chosen.type) ? STAB : 1;
+  const crit = Math.random() < CRIT_CHANCE;
+  const variance = rnd(0.85, 1);
   const offence = chosen.category === 'Physical' ? atkStats.atk : atkStats.spa;
   const defence = chosen.category === 'Physical' ? defStats.def : defStats.spd;
   const missed = Math.random() * 100 > chosen.accuracy;
-  const raw =
-    chosen.power *
-    (offence / Math.max(1, defence)) *
-    (level / 12) *
-    eff *
-    (crit ? 1.6 : 1) *
-    variance;
+  const base =
+    Math.floor(
+      (Math.floor((2 * attacker.level) / 5 + 2) * chosen.power * offence) / Math.max(1, defence) / 50,
+    ) + 2;
+  const raw = base * eff * stab * (crit ? CRIT_MULTIPLIER : 1) * variance;
   return {
-    // the divisor sets the pace of autoplay: ~8-12 actions to drop a target
-    damage: missed ? 0 : Math.max(1, Math.round(raw / DAMAGE_DIVISOR)),
+    damage: missed ? 0 : Math.max(1, Math.round(raw)),
     effective: eff,
     crit,
     missed,
     move: chosen,
   };
+}
+
+// --------------------------------------------------------------- turn order --
+/** One side of a turn, ready to be ordered and resolved. */
+export interface TurnSide {
+  species: string;
+  combatant: Combatant;
+  move: MoveDef;
+  /** true when this is one of the player's monsters */
+  player: boolean;
+  /** speed roll for this turn, already jittered and item-modified */
+  speed: number;
+  /** Quick Claw fired - acts first whatever the speed says */
+  claw: boolean;
+  /** the battle record whose HP the result is written to */
+  mon: BattleMon;
+}
+
+/**
+ * Held items that change how fast a monster acts. A Choice Scarf makes it
+ * outspeed things it has no right to outspeed; the heavy training gear does
+ * the opposite.
+ */
+export const SPEED_ITEMS: Record<string, number> = {
+  'choice-scarf': 1.5,
+  'macho-brace': 0.5,
+  'power-anklet': 0.5,
+  'iron-ball': 0.5,
+};
+/** Held item that gives a flat chance to strike first. */
+export const QUICK_CLAW = 'quick-claw';
+export const QUICK_CLAW_CHANCE = 0.2;
+
+/** Speed used to order a turn: base speed x held item x the 0.85-1.00 roll. */
+export function effectiveSpeed(combatant: Combatant, heldItem?: string | null): number {
+  const spe = statsAt(combatant.species, combatant.level, combatant.nature, combatant.iv ?? 15).spe;
+  const item = heldItem ? SPEED_ITEMS[heldItem] ?? 1 : 1;
+  return spe * item * rnd(0.85, 1);
+}
+
+/**
+ * Who acts first: move priority beats speed (Quick Attack and friends), a fired
+ * Quick Claw beats plain speed, then the speed roll, then a coin flip.
+ */
+export function actsFirst(a: TurnSide, b: TurnSide): boolean {
+  if (a.move.priority !== b.move.priority) return a.move.priority > b.move.priority;
+  if (a.claw !== b.claw) return a.claw;
+  if (a.speed !== b.speed) return a.speed > b.speed;
+  return Math.random() < 0.5;
 }
 
 export function catchChance(state: GameState, ballId: string, ctx: CatchContext): number {
@@ -286,8 +413,8 @@ export function rollItemReward(level: number): { item: ItemDef; qty: number } | 
 }
 
 export function battleCoins(level: number, biome: BiomeDef): number {
-  // battles are a supplement to the reserve, never the main income
-  return Math.ceil((3 + level * 1.2) * (1 + biome.unlockLevel / 25));
+  // rarer ground pays better, but it stays a supplement to the reserve
+  return Math.ceil((3 + level * 1.2) * (1 + tierOf(biome).tier * 0.45));
 }
 
 export function battleXp(level: number): number {
@@ -304,19 +431,19 @@ export function makeInitialBattle(): BattleState {
   return {
     team: [],
     biomeId: BIOMES[0].id,
+    tier: BIOMES[0].tier,
     enemyId: null,
     enemy: null,
     enemySpec: null,
     enemyLevel: 1,
     enemyShiny: false,
     players: [],
-    enemyCooldowns: {},
     turn: 0,
     log: [],
     logId: 1,
-    auto: true,
     progress: 0,
-    rotateAt: 25,
+    cleared: 0,
+    rotateAt: 10,
     timer: 0,
     rewards: { coins: 0, xp: 0, items: {} },
   };

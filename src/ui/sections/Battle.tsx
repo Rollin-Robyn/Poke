@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useGame } from '../store';
 import { Bar, ItemSprite, Modal, Panel, Sprite, TypeTag } from '../components';
 import { TYPE_COLORS, typeMultiplier } from '../../game/typechart';
+import { MAX_TEAM } from '../../game/state';
 import {
-  BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, DEX, ballContextFor, entry, fmt, movesFor, statsAt,
+  BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, BIOME_TIERS, DEX, ballContextFor, biomeLevelRange, entry, fmt,
+  movesFor, statsAt, tierOf, effectiveSpeed, type BiomeTierDef,
 } from './shared';
-
-const MAX_TEAM = 6;
 
 export function Battle() {
   const { state, dispatch } = useGame();
@@ -20,11 +20,22 @@ export function Battle() {
   const lead = b.players.find((p) => p.hp > 0);
   const leadMon = lead ? state.mons.find((m) => m.uid === lead.uid) : null;
 
+  const teamFull = b.team.length >= MAX_TEAM;
   const enemyRarity = b.enemySpec ? entry(b.enemySpec).rarity : 'common';
   const caught = b.enemySpec ? state.dexCaught.includes(b.enemySpec) : false;
   const enemyTypes = b.enemySpec ? entry(b.enemySpec).types : [];
-  const leadMoves = leadMon ? movesFor(leadMon.species) : [];
-  const cooldowns = lead?.moveCooldowns ?? {};
+  const leadMoves = leadMon ? movesFor(leadMon.species, leadMon.level) : [];
+  const enemyMoves = b.enemySpec ? movesFor(b.enemySpec, b.enemyLevel) : [];
+  const tier = tierOf(biome);
+  const [lo, hi] = biomeLevelRange(biome, b.cleared);
+  const bestLevel = state.mons.reduce((max, m) => Math.max(max, m.level), 0);
+  // who would move first this turn - priority and speed, jittered like the games
+  const leadSpeed = leadMon
+    ? effectiveSpeed({ species: leadMon.species, level: leadMon.level, nature: leadMon.nature, iv: leadMon.iv }, leadMon.heldItem)
+    : 0;
+  const enemySpeed = b.enemySpec && b.enemy
+    ? effectiveSpeed({ species: b.enemySpec, level: b.enemyLevel, nature: 'hardy', iv: 15 })
+    : 0;
 
   return (
     <div className="stack" style={{ gap: 14 }}>
@@ -33,16 +44,16 @@ export function Battle() {
           <span className="tag" style={{ background: `${biome.accent}33`, borderColor: `${biome.accent}88` }}>
             🧭 {biome.name}
           </span>
+          <span className="tag" style={{ background: `${tier.accent}22`, borderColor: `${tier.accent}66` }}>
+            {tier.name} · tier {tier.tier}
+          </span>
           <span className="small muted">
-            {b.progress}/{b.rotateAt} encounters until the area changes · turn {Math.floor(b.turn)} of this fight
+            {b.progress}/{b.rotateAt} encounters until the trail moves on · {fmt(b.cleared)} cleared · Lv.{lo}–{hi} wild
           </span>
         </div>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn sm" onClick={() => setPickBiome(true)}>Biome</button>
           <button className="btn sm" onClick={() => setPickTeam(true)}>Team ({b.team.length}/{MAX_TEAM})</button>
-          <button className={`btn sm ${b.auto ? 'good' : ''}`} onClick={() => dispatch({ type: 'TOGGLE_BATTLE_AUTO' })}>
-            {b.auto ? '⏸ Auto-battle on' : '▶ Auto-battle off'}
-          </button>
           <button className="btn sm" onClick={() => dispatch({ type: 'HEAL_TEAM' })}>Heal</button>
         </div>
       </div>
@@ -100,21 +111,26 @@ export function Battle() {
       </Panel>
 
       {b.enemySpec && leadMon && (
-        <Panel title={`${entry(leadMon.species).name}'s moves`} right={<span className="tiny dim">click a move to use it now · auto-battle picks the best one</span>}>
+        <Panel
+          title={`${entry(leadMon.species).name}'s turn — pick a move`}
+          right={
+            <span className="tiny dim">
+              turn {b.turn} · {leadSpeed > enemySpeed ? 'you move first' : leadSpeed < enemySpeed ? 'the wild monster moves first' : 'too close to call'}
+            </span>
+          }
+        >
           <div className="grid g4">
             {leadMoves.map((m) => {
-              const cd = cooldowns[m.id] ?? 0;
               const eff = typeMultiplier(m.type, enemyTypes);
+              const stab = entry(leadMon.species).types.includes(m.type);
               return (
                 <button
                   key={m.id}
                   className="panel"
                   style={{
-                    padding: 11, textAlign: 'left', cursor: cd > 0 ? 'not-allowed' : 'pointer',
-                    opacity: cd > 0 ? 0.45 : 1,
+                    padding: 11, textAlign: 'left', cursor: 'pointer',
                     borderColor: `${TYPE_COLORS[m.type as keyof typeof TYPE_COLORS] ?? '#888'}66`,
                   }}
-                  disabled={cd > 0}
                   onClick={() => dispatch({ type: 'USE_MOVE', uid: leadMon.uid, moveId: m.id })}
                 >
                   <div className="row between">
@@ -126,14 +142,19 @@ export function Battle() {
                     <span className="mono">{m.accuracy}% acc</span>
                   </div>
                   <div className="row between tiny" style={{ marginTop: 4 }}>
-                    <span className={eff > 1 ? '' : 'dim'} style={{ color: eff > 1.5 ? 'var(--good)' : eff < 0.7 ? 'var(--danger)' : undefined }}>
-                      {eff > 1.5 ? 'super effective ×' + eff : eff < 0.7 ? 'resisted ×' + eff.toFixed(2) : 'neutral'}
+                    <span style={{ color: eff > 1.5 ? 'var(--good)' : eff < 0.95 ? 'var(--danger)' : undefined }}>
+                      {eff > 1.5 ? 'super effective ×' + eff : eff < 0.95 ? 'resisted ×' + eff.toFixed(2) : 'neutral'}
+                      {stab ? ' · STAB' : ''}
                     </span>
-                    <span className="mono">{cd > 0 ? `recharge ${cd.toFixed(1)}s` : 'ready'}</span>
+                    <span className="mono">{m.priority > 0 ? `+${m.priority} priority` : m.priority < 0 ? `${m.priority} priority` : ''}</span>
                   </div>
                 </button>
               );
             })}
+          </div>
+          <div className="tiny dim" style={{ marginTop: 10 }}>
+            The wild {entry(b.enemySpec).name} knows {enemyMoves.length} move{enemyMoves.length === 1 ? '' : 's'}:{' '}
+            {enemyMoves.map((m) => m.name).join(', ') || '—'}
           </div>
         </Panel>
       )}
@@ -226,15 +247,11 @@ export function Battle() {
             </div>
           </Panel>
 
-          <Panel title="Fight settings">
-            <label className="row between small" style={{ cursor: 'pointer' }}>
-              <span>Auto-catch weakened monsters</span>
-              <input
-                type="checkbox"
-                checked={state.options.autoCatch}
-                onChange={(e) => dispatch({ type: 'SET_OPTION', key: 'autoCatch', value: e.target.checked })}
-              />
-            </label>
+          <Panel title="Fight rules">
+            <div className="tiny dim">
+              Battles are played by hand: your monsters only act when you click one of their moves, and the ball is
+              yours to throw whenever you like. The wild monster fights back on its own timer, so a slow turn costs HP.
+            </div>
             <label className="row between small" style={{ cursor: 'pointer', marginTop: 8 }}>
               <span>Auto-assign idle monsters to habitats</span>
               <input
@@ -243,10 +260,6 @@ export function Battle() {
                 onChange={(e) => dispatch({ type: 'SET_OPTION', key: 'autoAssign', value: e.target.checked })}
               />
             </label>
-            <div className="tiny dim" style={{ marginTop: 8 }}>
-              Auto-battle always uses the move with the best expected damage, and switches to the next monster when the
-              lead faints.
-            </div>
           </Panel>
         </div>
       </div>
@@ -276,9 +289,10 @@ export function Battle() {
       )}
 
       {pickTeam && (
-        <Modal title={`Choose your battle team (up to ${MAX_TEAM})`} onClose={() => setPickTeam(false)} wide>
+        <Modal title={`Choose your battle team (${b.team.length}/${MAX_TEAM})`} onClose={() => setPickTeam(false)} wide>
           <div className="small muted" style={{ marginBottom: 10 }}>
             Monsters in the team leave their habitat while they train. Sorted strongest first.
+            {teamFull && <b style={{ color: 'var(--gold)' }}> The team is full — drop one to swap it out.</b>}
           </div>
           <div className="grid g4">
             {[...state.mons]
@@ -286,17 +300,14 @@ export function Battle() {
               .slice(0, 80)
               .map((m) => {
                 const selected = b.team.includes(m.uid);
+                const blocked = !selected && teamFull;
                 return (
                   <div
                     key={m.uid}
                     className={`mon-card ${selected ? 'selected' : ''}`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      const next = selected
-                        ? b.team.filter((u) => u !== m.uid)
-                        : [...b.team, m.uid].slice(0, MAX_TEAM);
-                      dispatch({ type: 'SET_TEAM', uids: next });
-                    }}
+                    style={{ cursor: blocked ? 'not-allowed' : 'pointer', opacity: blocked ? 0.45 : 1 }}
+                    title={blocked ? `A team holds ${MAX_TEAM} monsters` : undefined}
+                    onClick={() => dispatch({ type: 'TOGGLE_TEAM_MEMBER', uid: m.uid })}
                   >
                     <div className="art" style={{ background: 'rgba(0,0,0,.3)' }}>
                       <Sprite species={m.species} form={m.form} shiny={m.shiny} size="lg" />
@@ -317,35 +328,54 @@ export function Battle() {
       )}
 
       {pickBiome && (
-        <Modal title="Where should they train?" onClose={() => setPickBiome(false)}>
-          <div className="stack">
-            {BIOMES.map((def) => {
-              const locked = state.mons.reduce((max, m) => Math.max(max, m.level), 0) < def.unlockLevel;
+        <Modal title="Where should they go?" onClose={() => setPickBiome(false)} wide>
+          <div className="small muted" style={{ marginBottom: 12 }}>
+            Areas are grouped by how rare the monsters living there are. Rarer ground needs a stronger team
+            and more encounters cleared before it turns up on its own.
+          </div>
+          <div className="stack" style={{ gap: 14 }}>
+            {BIOME_TIERS.map((t: BiomeTierDef) => {
+              const locked = bestLevel < t.unlockLevel || b.cleared < t.unlockCleared;
+              const areas = BIOMES.filter((x) => x.tier === t.tier);
               return (
-                <button
-                  key={def.id}
-                  className="btn"
-                  style={{ display: 'flex', justifyContent: 'space-between', opacity: locked ? 0.5 : 1 }}
-                  disabled={locked}
-                  onClick={() => {
-                    dispatch({ type: 'SET_BIOME', biomeId: def.id });
-                    setPickBiome(false);
-                  }}
-                >
-                  <span className="row" style={{ gap: 8 }}>
-                    <span style={{ color: def.accent }}>●</span>
-                    {def.name}
-                    <span className="tiny dim">{def.types.join(' / ')}</span>
-                  </span>
-                  <span className="tiny mono dim">
-                    {locked ? `needs a Lv.${def.unlockLevel} monster` : `Lv.${def.levelRange[0]}–${def.levelRange[1]}`}
-                  </span>
-                </button>
+                <div key={t.tier}>
+                  <div className="row between" style={{ marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, color: t.accent }}>
+                      Tier {t.tier} — {t.name}
+                    </span>
+                    <span className="tiny dim mono">
+                      {locked
+                        ? `needs a Lv.${t.unlockLevel} monster and ${t.unlockCleared} encounters cleared`
+                        : `Lv.${t.levelRange[0]}–${t.levelRange[1]} wild`}
+                    </span>
+                  </div>
+                  <div className="grid g3">
+                    {areas.map((def) => (
+                      <button
+                        key={def.id}
+                        className="btn"
+                        style={{ display: 'flex', justifyContent: 'space-between', opacity: locked ? 0.45 : 1 }}
+                        disabled={locked}
+                        onClick={() => {
+                          dispatch({ type: 'SET_BIOME', biomeId: def.id });
+                          setPickBiome(false);
+                        }}
+                      >
+                        <span className="row" style={{ gap: 8 }}>
+                          <span style={{ color: def.accent }}>●</span>
+                          {def.name}
+                        </span>
+                        <span className="tiny dim">{def.types.join(' / ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               );
             })}
           </div>
         </Modal>
       )}
+
     </div>
   );
 }

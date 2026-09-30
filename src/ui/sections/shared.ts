@@ -3,10 +3,10 @@
  * without long relative paths.
  */
 export {
-  BIOMES, BIOME_BY_ID, CASINO_GAMES, EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, EVENTS, HABITATS,
+  BIOMES, BIOME_BY_ID, BIOME_TIERS, CASINO_GAMES, EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, EVENTS, HABITATS,
   HABITAT_BY_ID, INCUBATORS, INCUBATOR_BY_ID, ITEMS, ITEM_BY_ID, MONO_BASE_COST, MONO_HABITATS,
   MULTI_HABITATS, SLOT_SYMBOLS, currentEvent, eventCurrencyName, habitatAccepts, nextHabitatCost,
-  slotUpgradeCost,
+  slotUpgradeCost, type BiomeTierDef,
 } from '../../game/content';
 export {
   DEX, DEX_IDS, RARITY_HATCH_TIME, RARITY_META, RARITIES, entry, itemUrl, spriteUrl, statsAt,
@@ -23,9 +23,10 @@ export {
 export { ACHIEVEMENTS } from '../../game/achievements';
 export { EVENT_EGG_FORMS, eventFormFor } from '../../game/content';
 export { highLowOdds, cardName as hiLoCardName } from '../../game/casino';
-export { HOURLY_CRATE_MS, DAILY_CRATE_MS, hourlyCrateCoins, dailyCrateDiamonds } from '../../game/state';
+export { HOURLY_CRATE_MS, hourlyCrateCoins, diamondExchangeCost, DIAMOND_EXCHANGE_GAIN, DIAMOND_EXCHANGE_GROWTH } from '../../game/state';
 export {
   BALLS, BALL_BY_ID, MOVES, battleCoins, battleXp, ballContextFor, catchChance, movesFor,
+  learnsetOf, tierOf, effectiveSpeed, actsFirst, biomeLevelRange, levelBonus,
 } from '../../game/battle';
 export { breedingCompatible, breedingTime, canRebirth, rebirthGain } from '../../game/reducer';
 export { TYPE_COLORS, TYPE_GLYPH, effectivenessLabel, typeMultiplier } from '../../game/typechart';

@@ -213,6 +213,242 @@ console.log('\nbattle rules');
   })());
 }
 
+// ------------------------------------------------------- turn based battles --
+console.log('\nbattles are turn based');
+{
+  check('a team holds six monsters', g.MAX_TEAM === 6, String(g.MAX_TEAM));
+  check('there is no auto-battle flag left in the state', !('auto' in g.createInitialState().battle));
+  check('there is no auto-catch option left', !('autoCatch' in g.createInitialState().options));
+  check('battle monsters have no real-time clocks left', !('cooldown' in g.createInitialState().battle));
+
+  // a strong starter so the fight cannot be lost while the clock runs
+  const ready = () => {
+    const s = fresh('charmander');
+    s.mons[0].level = 60;
+    Object.assign(s, g.reduce(s, { type: 'SET_TEAM', uids: [s.mons[0].uid] }));
+    g.simulate(s, 0.5);
+    return s;
+  };
+
+  const s = ready();
+  check('a wild monster walks in on its own', !!s.battle.enemySpec, String(s.battle.enemySpec));
+  const enemyHp = s.battle.enemy?.hp ?? 0;
+  const playerHp = s.battle.players[0]?.hp ?? 0;
+  for (let i = 0; i < 12; i++) g.simulate(s, 0.5);
+  check('nothing moves until the player takes a turn', s.battle.enemy?.hp === enemyHp && s.battle.players[0]?.hp === playerHp);
+  check('the tick adds no turns of its own', s.battle.turn === 0, String(s.battle.turn));
+
+  // and the wild monster answers the moment a move is picked
+  const mon = s.mons[0];
+  // keep the wild monster standing so both halves of the turn can be seen
+  s.battle.enemy.hp = s.battle.enemy.maxHp = 100_000;
+  const move = g.movesFor(mon.species, mon.level)[0];
+  const res = g.useMove(s, mon.uid, move.id);
+  check('picking a move resolves the turn', res.ok, res.text);
+  check('a turn is one turn', s.battle.turn === 1, String(s.battle.turn));
+  check(
+    'both sides act in the turn',
+    s.battle.log.some((l) => l.text.startsWith('Wild ')) && s.battle.log.some((l) => !l.text.startsWith('Wild ')),
+    JSON.stringify(s.battle.log.slice(0, 3).map((l) => l.text)),
+  );
+
+  // a weakened monster is left alone: the ball is yours to throw
+  const t = ready();
+  t.battle.enemy.hp = 1;
+  const balls = JSON.stringify(t.balls);
+  const roster = t.mons.length;
+  const caught = t.stats.caught;
+  for (let i = 0; i < 12; i++) g.simulate(t, 0.5);
+  check('no ball is thrown for you', JSON.stringify(t.balls) === balls);
+  check('nothing is caught for you', t.mons.length === roster && t.stats.caught === caught);
+
+  // a wipe: the party rests, then comes back on its own
+  const w = ready();
+  for (const p of w.battle.players) p.hp = 0;
+  w.battle.timer = g.WIPE_REST;
+  g.simulate(w, 1);
+  check('a wiped team does not fight on', w.battle.players.every((p) => p.hp === 0));
+  g.simulate(w, g.WIPE_REST);
+  check('a wiped team rests, then heals', w.battle.players.every((p) => p.hp === p.maxHp));
+  g.simulate(w, g.ENCOUNTER_DELAY + 0.5);
+  check('the next monster walks in after the rest', !!w.battle.enemySpec, String(w.battle.enemySpec));
+}
+
+// -------------------------------------------------------------- turn order ---
+console.log('\nturn order');
+{
+  const side = (species, level, moveId, held) => ({
+    species,
+    combatant: { species, level, nature: 'hardy', iv: 15 },
+    move: g.MOVES[moveId],
+    player: true,
+    speed: g.effectiveSpeed({ species, level, nature: 'hardy', iv: 15 }, held),
+    claw: false,
+    mon: { uid: 'x', hp: 999, maxHp: 999 },
+  });
+  // each turn rolls a fresh speed, so the race re-rolls both sides every time
+  const race = (makeA, makeB, n = 300) => {
+    let first = 0;
+    for (let i = 0; i < n; i++) if (g.actsFirst(makeA(), makeB())) first++;
+    return first / n;
+  };
+  const fast = () => side('pikachu', 60, 'thundershock');
+  const slow = () => side('pikachu', 5, 'thundershock');
+  check('the faster monster acts first', race(fast, slow) > 0.95, race(fast, slow).toFixed(2));
+  check('priority beats raw speed', race(() => side('pikachu', 5, 'quickattack'), fast) === 1);
+  check('a Choice Scarf swings the order', race(() => side('pikachu', 30, 'thundershock', 'choice-scarf'), () => side('pikachu', 40, 'thundershock')) > 0.9);
+  check('a Macho Brace does the opposite', race(() => side('pikachu', 40, 'thundershock', 'macho-brace'), () => side('pikachu', 30, 'thundershock')) < 0.1);
+  check('a fired Quick Claw jumps the queue', g.actsFirst(
+    { ...slow(), claw: true, speed: 1 },
+    { ...fast(), claw: false, speed: 999 },
+  ));
+  const mirror = race(() => side('pikachu', 30, 'thundershock'), () => side('pikachu', 30, 'thundershock'), 600);
+  check('an even match is a coin flip', mirror > 0.4 && mirror < 0.6, mirror.toFixed(2));
+}
+
+// ------------------------------------------------------------------ damage ---
+console.log('\ndamage');
+{
+  const avg = (level, moveId, defender = 'bulbasaur') => {
+    const a = { species: 'charmander', level, nature: 'hardy', iv: 15 };
+    const d = { species: defender, level, nature: 'hardy', iv: 15 };
+    let total = 0;
+    for (let i = 0; i < 400; i++) total += g.computeDamage(a, d, g.MOVES[moveId]).damage;
+    return total / 400;
+  };
+  const low = avg(5, 'scratch');
+  const mid = avg(25, 'scratch');
+  const high = avg(60, 'scratch');
+  check('damage scales with level', low < mid && mid < high, `${low} / ${mid} / ${high}`);
+  check('a low-level hit is not stuck at 1', low > 1.5, low.toFixed(2));
+  check('a super effective move hurts more', avg(30, 'flamethrower') > avg(30, 'scratch') * 2, `${avg(30, 'flamethrower').toFixed(1)} vs ${avg(30, 'scratch').toFixed(1)}`);
+  check('resistance is respected', avg(30, 'scratch', 'golem') < avg(30, 'scratch'), `${avg(30, 'scratch', 'golem').toFixed(1)}`);
+}
+
+// ------------------------------------------------------------------- moves ---
+console.log('\nmovesets');
+{
+  check('a level 1 monster still has something to do', g.movesFor('charmander', 1).length >= 1);
+  check('moves are picked up with levels', g.movesFor('charmander', 60).length > g.movesFor('charmander', 1).length);
+  check('no monster knows more than four moves', g.DEX_IDS.every((id) => g.movesFor(id, 100).length <= 4));
+  check('no monster knows the same move twice', g.DEX_IDS.every((id) => {
+    const ids = g.movesFor(id, 100).map((m) => m.id);
+    return new Set(ids).size === ids.length;
+  }));
+  check('every species has a learnset', g.DEX_IDS.every((id) => g.learnsetOf(id).length > 0));
+  check('learnsets are ordered weakest first', g.DEX_IDS.every((id) => {
+    const ls = g.learnsetOf(id);
+    return ls.every((x, i) => i === 0 || x.level >= ls[i - 1].level);
+  }));
+  check('the wild monster has a moveset of its own', (() => {
+    const s = fresh('charmander');
+    Object.assign(s, g.reduce(s, { type: 'SET_TEAM', uids: [s.mons[0].uid] }));
+    g.simulate(s, 0.5);
+    return s.battle.enemySpec ? g.movesFor(s.battle.enemySpec, s.battle.enemyLevel).length > 0 : false;
+  })());
+}
+
+// ------------------------------------------------------------------ biomes ---
+console.log('\nbiome tiers');
+{
+  check('every area belongs to a tier', g.BIOMES.every((b) => b.tier >= 1 && b.tier <= g.MAX_BIOME_TIER));
+  check('every tier holds several areas', g.BIOME_TIERS.every((t) => g.BIOMES.filter((b) => b.tier === t.tier).length >= 2));
+  const legendary = (tier) => g.BIOME_TIERS.find((t) => t.tier === tier).rarity.legendary;
+  check('common areas hold no legendaries', legendary(1) === 0, String(legendary(1)));
+  check('rarer ground holds rarer monsters', legendary(4) > legendary(3) && legendary(3) > legendary(1));
+  check('the pool really is filtered by rarity', (() => {
+    const t1 = g.biomePool(g.BIOMES[0]);
+    const t4 = g.biomePool(g.BIOMES.find((b) => b.tier === 4));
+    const weight = (pool, rarity) => pool.filter(([id]) => g.DEX[id].rarity === rarity).reduce((a, [, w]) => a + w, 0) / pool.reduce((a, [, w]) => a + w, 0);
+    return weight(t4, 'epic') > weight(t1, 'epic');
+  })());
+  let tiers = new Set();
+  for (let i = 0; i < 60; i++) tiers.add(g.rollBiomeTier(0, 1));
+  check('a fresh expedition stays in the quiet country', [...tiers].join() === '1', [...tiers].join());
+  tiers = new Set();
+  for (let i = 0; i < 200; i++) tiers.add(g.rollBiomeTier(500, 1));
+  check('cleared encounters open the rarer tiers', tiers.has(4) && tiers.size > 1, [...tiers].join());
+  check('the same tier still offers different areas', (() => {
+    const seen = new Set();
+    for (let i = 0; i < 60; i++) seen.add(g.randomBiomeOfTier(1).id);
+    return seen.size > 1;
+  })());
+  const area = g.BIOMES[0];
+  check('encounters push the level range up', g.biomeLevelRange(area, 100)[0] > g.biomeLevelRange(area, 0)[0], JSON.stringify([g.biomeLevelRange(area, 0), g.biomeLevelRange(area, 100)]));
+  check('the level bonus is capped', g.levelBonus(100000) <= 25, String(g.levelBonus(100000)));
+}
+
+// ------------------------------------------------------- diamonds & tickets --
+console.log('\ndiamonds and event tickets');
+{
+  const s = fresh('charmander');
+  check('the daily delivery is gone', !('daily' in s.crates), JSON.stringify(Object.keys(s.crates)));
+  s.coins = 5_000_000;
+  const coins = s.coins;
+  const gems = s.diamonds;
+  Object.assign(s, g.reduce(s, { type: 'CONVERT_COINS_TO_DIAMONDS' }));
+  const firstPrice = coins - s.coins;
+  check('the coin exchange takes coins', firstPrice > 0, String(firstPrice));
+  check('the coin exchange pays a diamond', s.diamonds === gems + 1, String(s.diamonds));
+  check('it refuses when the coins are not there', (() => {
+    const t = fresh('charmander');
+    t.coins = 10;
+    const before = t.diamonds;
+    Object.assign(t, g.reduce(t, { type: 'CONVERT_COINS_TO_DIAMONDS' }));
+    return t.diamonds === before;
+  })());
+  const second = g.diamondExchangeCost(s);
+  check('every exchange costs more than the last', second > firstPrice, `${firstPrice} -> ${second}`);
+
+  // event tokens come out of encounters while a festival is running
+  const e = fresh('charmander');
+  e.mons[0].level = 90;
+  Object.assign(e, g.reduce(e, { type: 'SET_TEAM', uids: [e.mons[0].uid] }));
+  e.eventTokens = 0;
+  for (let i = 0; i < 600 && e.stats.battlesWon < 60; i++) {
+    g.simulate(e, 2);
+    if (!e.battle.enemy) continue;
+    // patch the party up between fights: this block counts encounters, it is
+    // not a test of attrition, and a wipe would park the run on a rest timer
+    for (const p of e.battle.players) p.hp = p.maxHp;
+    const lead = e.battle.players.find((p) => p.hp > 0);
+    if (!lead) break;
+    const mon = e.mons.find((m) => m.uid === lead.uid);
+    if (!mon) break;
+    e.battle.enemy.hp = 1; // one-shot it so the encounters tick over
+    g.useMove(e, mon.uid, g.movesFor(mon.species, mon.level)[0].id);
+  }
+  check('encounters pay event tokens while an event runs', e.eventTokens > 0, `${e.eventTokens} in ${e.stats.battlesWon} wins`);
+}
+
+// ----------------------------------------------------------- reducer purity --
+// React may run a reducer twice for one dispatch (StrictMode does exactly that
+// in development). A shallow clone made the second pass mutate the state the
+// first pass had already changed, which handed out two starters at once.
+console.log('\nreducer purity');
+{
+  const action = { type: 'CHOOSE_STARTER', species: 'squirtle' };
+  const a = g.createInitialState();
+  const first = g.reduce(a, action);
+  check('a starter dispatch leaves the previous state alone', a.mons.length === 0, `${a.mons.length}`);
+  const replay = g.reduce(a, action);
+  check('replaying a starter dispatch does not double it', replay.mons.length === 1, `${replay.mons.length}`);
+  check('replaying gives back the same result', first.mons.length === replay.mons.length);
+  Object.assign(a, first);
+  Object.assign(a, g.reduce(a, action));
+  check('a second dispatch is refused once the reserve has started', a.mons.length === 1, `${a.mons.length}`);
+
+  const b = g.createInitialState();
+  Object.assign(b, g.reduce(b, { type: 'CHOOSE_STARTER', species: 'bulbasaur' }));
+  b.coins = 100_000;
+  const before = b.coins;
+  const once = g.reduce(b, { type: 'BUY_HABITAT', defId: g.MONO_HABITATS[0].id });
+  const twice = g.reduce(b, { type: 'BUY_HABITAT', defId: g.MONO_HABITATS[0].id });
+  check('a purchase costs the same when replayed', once.coins === twice.coins, `${once.coins} vs ${twice.coins}`);
+  check('a purchase is taken out of the balance once', before - once.coins > 0, `${before - once.coins}`);
+  check('a replayed purchase adds one habitat, not two', once.habitats.length === b.habitats.length + 1, `${once.habitats.length}`);
+}
+
 // ----------------------------------------------------------------- events ---
 console.log('\nevent rules');
 {

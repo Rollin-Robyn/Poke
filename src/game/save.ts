@@ -1,4 +1,4 @@
-import { HABITAT_BY_ID, MONO_HABITATS, MULTI_HABITATS } from './content';
+import { BIOME_BY_ID, HABITAT_BY_ID, MONO_HABITATS, MULTI_HABITATS } from './content';
 import { createInitialState, fastForward, makeMon, syncBattleTeam, SAVE_VERSION } from './reducer';
 import { DEX, DEX_IDS } from './dex';
 import { clamp } from './rng';
@@ -70,13 +70,19 @@ export function migrateSave(raw: unknown): GameState {
 
 function migrate(state: GameState): GameState {
   const fresh = createInitialState();
+  const options = { ...fresh.options, ...(state.options ?? {}) };
+  const battle = { ...fresh.battle, ...(state.battle ?? {}) };
+  // retired settings: auto-battle and auto-catch are gone, so drop whatever an
+  // old save still carries instead of letting a dead switch ride along forever
+  delete (options as { autoCatch?: boolean }).autoCatch;
+  delete (battle as { auto?: boolean }).auto;
   const merged: GameState = {
     ...fresh,
     ...state,
     version: SAVE_VERSION,
     stats: { ...fresh.stats, ...(state.stats ?? {}) },
-    options: { ...fresh.options, ...(state.options ?? {}) },
-    battle: { ...fresh.battle, ...(state.battle ?? {}) },
+    options,
+    battle,
     boosts: state.boosts ?? [],
     eventClaimed: state.eventClaimed ?? [],
     balls: state.balls ?? { 'poke-ball': 10 },
@@ -92,7 +98,9 @@ function migrate(state: GameState): GameState {
   merged.galleryUnlocked ??= [];
   merged.achievements ??= [];
   merged.shopUnlocked ??= [];
-  merged.crates ??= { hourly: 0, daily: 0 };
+  // the daily delivery is gone: only the hourly crate survives a migration
+  merged.crates = { hourly: Number((merged.crates as { hourly?: number } | undefined)?.hourly) || 0 };
+  merged.diamondExchanges = Number(merged.diamondExchanges) || 0;
   merged.dexSeen ??= [];
   merged.dexCaught ??= [];
   merged.eventClaimed ??= [];
@@ -119,17 +127,22 @@ function migrate(state: GameState): GameState {
   merged.battle.log ??= [];
   merged.battle.rewards ??= { coins: 0, xp: 0, items: {} };
   merged.battle.rewards.items ??= {};
-  merged.battle.enemyCooldowns ??= {};
   merged.battle.turn ??= 0;
+  merged.battle.cleared ??= 0;
   merged.battle.biomeId ??= 'meadow';
+  // a save from the real-time version carries per-monster cooldown maps and an
+  // `auto` flag that no longer exist; the tier comes from the area it is in
+  delete (merged.battle as { enemyCooldowns?: unknown }).enemyCooldowns;
   for (const p of merged.battle.players) {
-    p.cooldown ??= 0;
-    p.moveCooldowns ??= {};
+    delete (p as { cooldown?: unknown }).cooldown;
+    delete (p as { moveCooldowns?: unknown }).moveCooldowns;
   }
   if (merged.battle.enemy) {
-    merged.battle.enemy.cooldown ??= 0;
-    merged.battle.enemy.moveCooldowns ??= {};
+    delete (merged.battle.enemy as { cooldown?: unknown }).cooldown;
+    delete (merged.battle.enemy as { moveCooldowns?: unknown }).moveCooldowns;
   }
+  const area = BIOME_BY_ID[merged.battle.biomeId];
+  merged.battle.tier = area?.tier ?? 1;
   // a team referencing monsters that no longer exist has to be rebuilt
   merged.battle.team = (merged.battle.team ?? []).filter((u) => merged.mons.some((m) => m.uid === u));
   merged.battle.players = merged.battle.players.filter((p) => merged.mons.some((m) => m.uid === p.uid));

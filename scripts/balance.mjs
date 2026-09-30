@@ -46,6 +46,37 @@ const fmt = (n) => {
   return `${v.toFixed(2)}${u[i]}`;
 };
 
+/**
+ * Battles are turn based and played by hand: nothing moves until the player
+ * picks a move, and then both sides act once. This stands in for a player
+ * sitting on the Battle screen clicking a move about once a second, and
+ * throwing a ball once the wild monster is nearly down.
+ *
+ * It calls `useMove`/`tryCatch` straight from the game logic (which is exactly
+ * what the UI's two battle actions do) so the playthrough does not pay for a
+ * state copy on every click.
+ */
+function playBattle(s) {
+  const b = s.battle;
+  if (!b.enemy || !b.enemySpec) return;
+  const lead = b.players.find((p) => p.hp > 0);
+  const mon = lead && s.mons.find((m) => m.uid === lead.uid);
+  if (!mon) return;
+  // a weakened monster is worth a ball before it is worth another hit
+  if (b.enemy.hp / b.enemy.maxHp < 0.3) {
+    const ball = ['ultra-ball', 'great-ball', 'poke-ball'].find((id) => (s.balls[id] ?? 0) > 0);
+    if (ball) {
+      g.tryCatch(s, ball);
+      return;
+    }
+  }
+  const moves = g.movesFor(mon.species, mon.level);
+  if (moves.length) {
+    const best = moves.reduce((a, m) => (m.power > a.power ? m : a), moves[0]);
+    g.useMove(s, mon.uid, best.id);
+  }
+}
+
 function playthrough(label, strategy) {
   const s = createInitialState();
   reduce(s, { type: 'CHOOSE_STARTER', species: 'charmander' });
@@ -91,11 +122,14 @@ function playthrough(label, strategy) {
   return s;
 }
 
-// --- strategy A: pure idle, no purchases at all
-playthrough('pure idle (no purchases)', () => {});
+// --- strategy A: pure idle, no purchases and no clicking
+playthrough('pure idle (no purchases, no battles)', () => {});
 
 // --- strategy B: greedy buyer, roughly how a real player behaves
 function greedy(s, t) {
+  // a hands-on player: fight while the reserve runs itself
+  playBattle(s);
+
   const buyUpgrade = (id) => {
     const def = g.UPGRADE_BY_ID[id];
     const lvl = s.upgrades[id] ?? 0;
@@ -177,8 +211,9 @@ function greedy(s, t) {
 
   // pick up the wall-clock crates whenever they land
   if (t % 60 === 0) {
-    reduce(s, { type: 'CLAIM_CRATE', kind: 'hourly' });
-    reduce(s, { type: 'CLAIM_CRATE', kind: 'daily' });
+    reduce(s, { type: 'CLAIM_CRATE' });
+    // the greedy buyer also trades spare coins for diamonds at the exchange
+    while (s.coins > g.diamondExchangeCost(s) * 6) reduce(s, { type: 'CONVERT_COINS_TO_DIAMONDS' });
   }
 
   // diamonds: first the permanent upgrades, then the diamond-only egg tiers

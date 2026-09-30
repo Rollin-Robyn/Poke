@@ -17,20 +17,26 @@ Ten screens, wired together so each one feeds the next.
 
 | Screen | What it does |
 | --- | --- |
-| **Dashboard** | Every currency (coins, diamonds, rebirth coins, event tokens), coins/hour and coins/day, the habitat widget, supply crates and the activity log. |
+| **Dashboard** | Every currency (coins, diamonds, rebirth coins, event tokens), coins/hour and coins/day, the habitat widget, the hourly supply crate, the **coin exchange** (coins → diamonds) and the activity log. |
 | **My Habitats** | The habitats you own as instances, with the monsters inside them and their income. Monotype habitats are cheap; multitype habitats hold two or three types and cost a fortune. Both get more expensive the more of that class you own, and you can own duplicates. A fresh habitat holds **one** monster; every capacity upgrade adds exactly **+1**. |
 | **Eggs** | Stockpile with an upgradable cap, five incubator tiers (faster + more slots), five egg tiers, a buy-egg section and the seasonal **festival egg**. Hatching always gives a **level 1** monster — the reward is rarity, not levels. |
 | **My Pokémon** | The full roster as cards: art, types, nature, production/min, happiness and sleep timer. Sort by level / output / rarity / dex number / recent. Hold items, feed berries, evolve, release. |
-| **Pokédex** | All 649 species. Uncaught species show a `?`. Detail view with base stats, breeding data, evolutions and a **Gallery** where the extra artwork (shiny, back, female, forms) is unlocked with diamonds. |
+| **Pokédex** | All 649 species. Uncaught species show a `?`. Detail view with base stats, breeding data, evolutions, the **moves by level** learnset, and a **Gallery** where the extra artwork (shiny, back, female, forms) is unlocked with diamonds. |
 | **Breeding** | Zones, an active pair display and parent selection. One male + one female, matching type (or one Normal) and a shared egg group. Egg rarity follows the parents; they rest afterwards. |
-| **Battle** | A team of **six**, random encounters with real moves — every move is visible with its power, accuracy, type effectiveness and recharge timer. Eight rotating biomes, catching with 14 ball types, trainer battles every 25th win. |
+| **Battle** | Turn-based and played **by hand**. You pick a move, then both monsters act once, ordered by move priority, then speed, then held items (Choice Scarf, Quick Claw, Macho Brace) — with a speed roll, so a close call can go either way. A team of **six**; every monster knows the four moves it learned most recently from its species' learnset, so moves grow with level. Twelve areas in four tiers: rarer ground holds rarer monsters, clearing encounters pushes the level range up and opens the chance of a rarer tier, and the trail picks a random area inside that tier so the same rarity keeps looking different. Catching with 14 ball types — a throw costs the turn — and trainer battles every 25th win. |
 | **Events** | Four seasonal events driven by the real calendar, each unlocking forms that exist in your repo and paying out **epic-tier** rewards for event tokens. |
 | **Casino** | Six minigames, coins or diamonds, and the stake is an exact amount you type — never forced all-in. |
 | **Resort** | Diamond upgrades, achievements (they pay diamonds), the bag, **rebirth** and hard reset. |
 | **Settings** | ⚙️ in the header: game options, export/import a save, and a reset that really clears the stored save. |
 
-**Currencies:** coins (the main engine), diamonds (achievements, crates, rare battle drops,
-casino, rebirth), rebirth coins (+5% permanent coins each) and event tokens (seasonal).
+**Currencies:** coins (the main engine), diamonds (the **coin exchange**, achievements, rare
+battle drops, casino, rebirth), rebirth coins (+5% permanent coins each) and event tokens
+(paid out of **encounters while a seasonal event is running**).
+
+**There is no daily delivery.** The hourly supply crate pays coins; diamonds are bought with
+a large pile of coins at the exchange on the Dashboard, and every trade costs more than the
+one before it (25 K, 36 K, 52 K, …), so a fat bank buys a handful of gems rather than the
+whole shop. Event tickets only drop while a festival is running.
 
 **Diamonds are the premium track.** Radiant and mythic eggs are bought with diamonds only,
 and so are the diamond upgrades and the gallery artwork.
@@ -61,7 +67,7 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 
 ## Rules that are enforced (and tested)
 
-`npm run checks` asserts the design rules against the real game logic — 93 checks:
+`npm run checks` asserts the design rules against the real game logic — 148 checks:
 
 - the starter flow hands over **only** the chosen starter, in a **monotype habitat of its own
   type**, level 1, with no free monsters and no extra habitats;
@@ -71,8 +77,24 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
   are allowed and capacity is exactly `1 + upgrades`;
 - a habitat refuses a monster that does not match its types, and refuses a 2nd monster when
   it is full;
-- the battle team is capped at six, every monster has four moves, and no two balls do the
-  same thing;
+- the battle team is capped at six, and no two balls do the same thing;
+- **battles are turn based** — nothing moves until the player picks a move or throws a
+  ball, and then both sides act once: move priority first, then a jittered speed roll, then
+  held items, then a coin flip on a tie;
+- damage follows the main-series formula (`((2×level/5 + 2) × power × atk/def) / 50 + 2`,
+  times effectiveness, STAB, a critical and the 0.85–1.00 roll), so it scales with level
+  instead of sticking at 1;
+- a monster knows the four moves it learned most recently from a per-species learnset
+  (`npm run data` builds it, seeded so it is reproducible) — level 1 monsters start with
+  one or two weak moves, and no move appears twice;
+- areas come in four tiers with several areas each: rarer tiers hold rarer monsters, the
+  trail picks a random area inside a tier, and clearing encounters is the only thing that
+  raises the level range or opens a rarer tier;
+- **the daily delivery is gone** — the coin exchange is the steady diamond source and each
+  trade is dearer than the last, and event tokens only come out of encounters during a
+  festival;
+- **the reducer is pure** — replaying a dispatch lands in exactly the same place, so one
+  starter pick cannot hand out two monsters (React runs reducers twice in StrictMode);
 - **no event reward is above epic** — legendary and mythical monsters only come out of
   event eggs, mythic eggs and the deepest biomes;
 - casino stakes are exact (an oversized stake is refused rather than clamped);
@@ -145,7 +167,7 @@ npm run dev        play it (hot reload)
 npm run build      typecheck + production build into dist/
 npm run typecheck  tsc --noEmit
 npm run data       regenerate dex.json / items.json
-npm run checks     assert the design rules (93 checks)
+npm run checks     assert the design rules (148 checks)
 npm run smoke      render every screen headlessly on a played save *and* a new one
 npm run legacy     load a pre-rework save and check it migrates cleanly
 npm run verify     typecheck + checks + smoke + build
@@ -157,20 +179,28 @@ HOURS=24 npm run balance
 
 ## How progression is tuned
 
-Verified with `npm run balance` (greedy-buyer strategy, 7 simulated days). Battles stay a
-supplement to the reserve rather than the main income.
+Verified with `npm run balance` (greedy-buyer strategy, 7 simulated days). The greedy buyer
+fights by hand — one move a second, and a ball once a wild monster is below a third of its
+HP — because battles pay nothing unless the player takes a turn.
 
 | Time | Coins banked | Coins/min | Habitats | Monsters housed | Species caught |
 | --- | --- | --- | --- | --- | --- |
-| 6 h | 27.8 K | 470 | 6 | 8 | 13 |
-| 12 h | 53 K | 709 | 7 | 15 | 19 |
-| 24 h | 117 K | 2.1 K | 8 | 27 | 30 |
-| 48 h | 1.4 M | 6.9 K | 13 | 58 | 56 |
-| 3 days | 3.2 M | 19.2 K | 14 | 103 | 92 |
-| 7 days | 16–21 M | 75 K | 17 | 331 | 204 |
+| 6 h | 118 K | 6.1 K | 6 | 4 | 12 |
+| 12 h | 512 K | 9.4 K | 11 | 9 | 19 |
+| 24 h | 1.1 M | 7.0 K | 15 | 20 | 26 |
+| 48 h | 4.3 M | 37 K | 17 | 76 | 68 |
+| 3 days | 8.5 M | 66 K | 17 | 151 | 115 |
+| 7 days | 95 M | 139 K | 17 | 351 | 176 |
 
-A player who never spends anything earns ~5 K/hour from battles alone, so a passive start is
-slow on purpose — the first capacity upgrade is the real first decision.
+Battles stay a supplement rather than the main income — roughly a tenth of everything the
+reserve earns over a week — but they are the only way to get the first monsters, and the
+only thing that levels a team up. The "pure idle" run, which buys nothing and clicks
+nothing, is still sitting on its 500 starting coins after seven days.
+
+A fight is short: three to five turns is typical, because damage now follows the real
+formula and scales with level. Clearing encounters pushes wild levels up (one level per
+five encounters, capped at +20) and opens the rarer tiers; storage fills up at 400
+monsters around day four, so the mid-game is about quality and habitat slots, not hoarding.
 
 Rebirth curve: 5 M lifetime → +2 coins, 100 M → +12, 1 B → +44, 1 T → +1995.
 

@@ -153,12 +153,15 @@ check('a habitat has a free slot', !!freeHab);
   const guest = s.mons.find((m) => m.habitatId) as (typeof s.mons)[number];
   const home = guest.habitatId as string;
   check('a monster is housed in a migrated habitat', !!home && habitatIds.has(home), String(home));
+  // reduce() hands back a fresh copy of the state, so the monster has to be
+  // looked up again after every dispatch instead of through a held reference
+  const find = (uid: string) => s.mons.find((m) => m.uid === uid);
 
   Object.assign(s, reduce(s, { type: 'ASSIGN_MON', uid: guest.uid, habitatId: null }));
-  check('a housed monster can be moved back to storage', guest.habitatId === null, String(guest.habitatId));
+  check('a housed monster can be moved back to storage', find(guest.uid)?.habitatId === null, String(find(guest.uid)?.habitatId));
 
   Object.assign(s, reduce(s, { type: 'ASSIGN_MON', uid: guest.uid, habitatId: home }));
-  check('and moved back into its habitat', guest.habitatId === home, String(guest.habitatId));
+  check('and moved back into its habitat', find(guest.uid)?.habitatId === home, String(find(guest.uid)?.habitatId));
 
   // capacity must still be enforced after migration
   const tight = s.habitats.find((h) => habitatSlots(h) === 1);
@@ -181,7 +184,13 @@ try {
 }
 check('the game loop runs 10 minutes without throwing', tickError === null, (tickError ?? '').slice(0, 600));
 check('the battle keeps fighting with a stale team uid', s.battle.team.length === 2, JSON.stringify(s.battle.team));
-check('battle players get a cooldown field', s.battle.players.every((p) => typeof p.cooldown === 'number'));
+// cooldowns belonged to the real-time battle system that is gone
+check('battle players carry hit points only', s.battle.players.every((p) => typeof p.hp === 'number' && !('cooldown' in p)));
+check('the battle picks up the tier of its area', s.battle.tier >= 1 && s.battle.tier <= 4, String(s.battle.tier));
+check('the daily crate is dropped on migration', !('daily' in s.crates), JSON.stringify(Object.keys(s.crates)));
+// auto-battle and auto-catch were removed; an old save must not drag them back
+check('the retired auto-battle flag is dropped', !('auto' in s.battle), JSON.stringify(Object.keys(s.battle)));
+check('the retired auto-catch option is dropped', !('autoCatch' in s.options), JSON.stringify(Object.keys(s.options)));
 
 // --- render every screen against the loaded save --------------------------
 console.log('\nrendering every screen on the migrated save');

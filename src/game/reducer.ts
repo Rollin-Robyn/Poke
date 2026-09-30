@@ -1,17 +1,21 @@
 import { EVENTS, ITEMS, ITEM_BY_ID, HABITAT_BY_ID, HABITATS, INCUBATORS, INCUBATOR_BY_ID, BIOMES, BIOME_BY_ID, EGG_HATCH_LEVEL, EGG_TIERS, eventFormFor, type HabitatDef, type IncubatorDef } from './content';
 import { ACHIEVEMENTS } from './achievements';
+import { currentEvent } from './content';
 import {
-  BALLS, BALL_BY_ID, BALL_IDS, battleCoins, battleXp, biomePool, catchChance, computeDamage, makeInitialBattle,
-  moveCooldown, movesFor, pushBattleLog, rollItemReward, spawnEnemy, type MoveDef,
+  BALLS, BALL_BY_ID, BALL_IDS, battleCoins, battleXp, catchChance, computeDamage, makeInitialBattle,
+  ENCOUNTER_DELAY, WIPE_REST, biomeLevelRange, movesFor, pushBattleLog, rollItemReward, spawnEnemy,
+  rollBiomeTier, randomBiomeOfTier, tierOf, effectiveSpeed, actsFirst, QUICK_CLAW, QUICK_CLAW_CHANCE,
+  WILD_DAMAGE_SCALE, levelBonus, type MoveDef, type TurnSide,
 } from './battle';
 import { DEX, DEX_IDS, RARITIES, RARITY_HATCH_TIME, entry, statsAt, type Rarity } from './dex';
 import { NATURES } from './natures';
 import { chance, clamp, pick, pickWeighted, rnd, rndInt, uid } from './rng';
 import {
   DIAMOND_UPGRADE_BY_ID, UPGRADE_BY_ID, awakeSeconds, breedingMultiplier, canEnterHabitat, diamondLevel,
+  xpNeeded,
   eggStorageCap, energyLabel, gainXp, globalCoinMultiplier, habitatProduction, happinessRate,
   habitatSlots, incubationMultiplier, monOutputWithHabitat, productionPerMinute, storageCap,
-  totalHabitatSlots, upgradeLevel,
+  totalHabitatSlots, upgradeLevel, MAX_TEAM,
 } from './state';
 import { typeMultiplier } from './typechart';
 import type { BattleMon, BattleState, GameState, Gender, Mon, StoredEgg } from './state';
@@ -89,11 +93,12 @@ export function createInitialState(): GameState {
     offlineReport: null,
     log: [],
     logId: 1,
-    options: { sort: 'level', autoCatch: true, autoAssign: true, showBackSprites: false },
+    options: { sort: 'level', autoAssign: true, showBackSprites: false },
     boosts: [],
     eventClaimed: [],
     casinoResult: null,
-    crates: { hourly: 0, daily: 0 },
+    crates: { hourly: 0 },
+    diamondExchanges: 0,
     started: false,
   };
   return state;
@@ -299,51 +304,55 @@ export function breedingTime(a: Mon, b: Mon, s: GameState): number {
 }
 
 // ----------------------------------------------------------------- battle ---
-function startEncounter(s: GameState, levelOverride?: number): void {
+/**
+ * A fight is a string of turns. Nothing moves until the player picks a move
+ * (or throws a ball); then both sides act once, ordered by move priority and
+ * speed, and the turn is over. No clocks, no cooldowns, no automation.
+ */
+function startEncounter(s: GameState): void {
   const b = s.battle;
   const biome = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
-  let level = levelOverride;
-  if (level === undefined) {
-    // keep encounters relevant: never wildly below the player's team
-    const team = s.mons.filter((m) => b.team.includes(m.uid));
-    const avg = team.length ? team.reduce((a, m) => a + m.level, 0) / team.length : biome.levelRange[1];
-    level = clamp(Math.round(avg) + rndInt(-1, 1), biome.levelRange[0], biome.levelRange[1] + 14);
-  }
-  const spawn = spawnEnemy(s, biome, level);
+  // wild monsters scale with the tier of the area and with how much has been cleared
+  const [lo, hi] = biomeLevelRange(biome, b.cleared);
+  const team = s.mons.filter((m) => b.team.includes(m.uid));
+  const avg = team.length ? team.reduce((a, m) => a + m.level, 0) / team.length : (lo + hi) / 2;
+  const level = clamp(Math.round(avg) + rndInt(-2, 2), lo, hi);
+  const spawn = spawnEnemy(s, biome, [Math.min(level, hi), Math.max(level, lo)]);
   const mon = makeMon(spawn.species, spawn.level, { shiny: spawn.shiny });
   b.enemyId = mon.uid;
   b.enemySpec = spawn.species;
   b.enemyLevel = spawn.level;
   b.enemyShiny = spawn.shiny;
   const stats = statsAt(spawn.species, spawn.level, mon.nature, mon.iv);
-  b.enemy = { uid: mon.uid, hp: stats.hp, maxHp: stats.hp, cooldown: rnd(0.4, 1.0), moveCooldowns: {} };
-  b.enemyCooldowns = {};
+  b.enemy = { uid: mon.uid, hp: stats.hp, maxHp: stats.hp };
   b.turn = 0;
   if (!s.dexSeen.includes(spawn.species)) s.dexSeen.push(spawn.species);
-  b.timer = 0.35;
+  pushBattleLog(b, `A wild ${entry(spawn.species).name} (Lv.${spawn.level}) appears in ${biome.name}!`, 'info');
 }
 
 export function syncBattleTeam(s: GameState): void {
   const b = s.battle;
-  const team = b.team.filter((u) => s.mons.some((m) => m.uid === u));
+  // a team is never bigger than six, whatever a save or an import claims
+  const team = b.team.filter((u) => s.mons.some((m) => m.uid === u)).slice(0, MAX_TEAM);
   b.team = team;
   const existing = new Map(b.players.map((p) => [p.uid, p]));
   b.players = team.map((u) => {
     const mon = s.mons.find((m) => m.uid === u)!;
     const prev = existing.get(u);
     const stats = statsAt(mon.species, mon.level, mon.nature, mon.iv);
-    if (prev && prev.maxHp === stats.hp) {
-      prev.cooldown ??= 0;
-      prev.moveCooldowns ??= {};
-      return prev;
-    }
-    return { uid: u, hp: stats.hp, maxHp: stats.hp, cooldown: rnd(0, 0.5), moveCooldowns: {} };
+    if (prev && prev.maxHp === stats.hp) return prev;
+    return { uid: u, hp: stats.hp, maxHp: stats.hp };
   });
 }
 
 function healTeam(s: GameState): void {
   syncBattleTeam(s);
   for (const p of s.battle.players) p.hp = p.maxHp;
+}
+
+/** The monster currently out in front: the first one of yours still standing. */
+export function battleLead(s: GameState): BattleMon | null {
+  return s.battle.players.find((p) => p.hp > 0) ?? null;
 }
 
 function awardBattleRewards(s: GameState, enemyLevel: number, isBoss: boolean): void {
@@ -356,13 +365,16 @@ function awardBattleRewards(s: GameState, enemyLevel: number, isBoss: boolean): 
   b.rewards.coins += coins;
   b.rewards.xp += xpEach;
 
-  // xp is split across the team, weighted to whoever is fighting
+  // XP is a share of what the next level costs, scaled by how much stronger
+  // the beaten monster was - a flat number stopped counting as soon as the
+  // areas started climbing, and teams fell behind the wild monsters
   const alive = b.players.filter((p) => p.hp > 0);
   const recipients = alive.length ? alive : b.players;
   for (const p of recipients) {
     const mon = s.mons.find((m) => m.uid === p.uid);
     if (!mon) continue;
-    const gained = gainXp(mon, xpEach * 0.6);
+    const share = 0.2 * clamp(enemyLevel / Math.max(1, mon.level), 0.5, 2);
+    const gained = gainXp(mon, xpNeeded(mon.level) * share + xpEach * 0.1);
     if (gained) {
       const stats = statsAt(mon.species, mon.level, mon.nature, mon.iv);
       const pEntry = b.players.find((x) => x.uid === mon.uid);
@@ -375,14 +387,11 @@ function awardBattleRewards(s: GameState, enemyLevel: number, isBoss: boolean): 
 
   // every 25th win a trainer steps in: a guaranteed item plus a ball
   const trainer = s.stats.battlesWon % 25 === 24;
-  const drop = rollItemReward(enemyLevel);
-  if (drop || trainer) {
-    const item = drop ?? rollItemReward(enemyLevel + 25);
-    if (item) {
-      const qty = trainer ? item.qty + 1 : item.qty;
-      grantItems(s, item.item.id, qty);
-      b.rewards.items[item.item.id] = (b.rewards.items[item.item.id] ?? 0) + qty;
-    }
+  const drop = rollItemReward(enemyLevel) ?? (trainer ? rollItemReward(enemyLevel + 25) : null);
+  if (drop) {
+    const qty = trainer ? drop.qty + 1 : drop.qty;
+    grantItems(s, drop.item.id, qty);
+    b.rewards.items[drop.item.id] = (b.rewards.items[drop.item.id] ?? 0) + qty;
     if (trainer) {
       const ball = pick(BALL_IDS);
       s.balls[ball] = (s.balls[ball] ?? 0) + 1;
@@ -392,199 +401,227 @@ function awardBattleRewards(s: GameState, enemyLevel: number, isBoss: boolean): 
   if (chance(0.005)) {
     s.balls['great-ball'] = (s.balls['great-ball'] ?? 0) + 1;
   }
-  // Diamonds trickle out of the reserve as a rare wild drop only, which keeps
-  // the gem faucet slow enough for the diamond shop to stay meaningful.
+  // Diamonds trickle out as a rare wild drop, which keeps the gem faucet slow
+  // enough for the diamond shop - and the coin exchange - to stay meaningful.
   const gems = chance(0.005) ? 1 : 0;
   if (gems > 0) {
     s.diamonds += gems;
     b.rewards.items['__diamonds'] = (b.rewards.items['__diamonds'] ?? 0) + gems;
   }
-  // The seasonal event drips tokens: roughly one token per hundred wins, so a
-  // festival egg lands about once a day for an active player.
-  const tokens = chance(0.01) ? 1 : 0;
-  if (tokens) {
-    s.eventTokens += tokens;
-    b.rewards.items['__tokens'] = (b.rewards.items['__tokens'] ?? 0) + tokens;
+  // Seasonal events pay their tokens out in encounters: the more you fight
+  // while a festival is running, the more of it you can claim.
+  if (currentEvent() && chance(0.35)) {
+    s.eventTokens += 1;
+    b.rewards.items['__tokens'] = (b.rewards.items['__tokens'] ?? 0) + 1;
   }
   s.stats.battlesWon += 1;
 }
 
-/** Pick the move that will hurt the most right now. */
-function bestMove(s: GameState, mon: Mon, enemySpecies: string): MoveDef | undefined {
-  const moves = movesFor(mon.species);
-  if (!moves.length) return undefined;
-  const enemyTypes = entry(enemySpecies).types;
-  let best = moves[0];
-  let bestScore = -1;
-  for (const m of moves) {
-    const score = m.power * typeMultiplier(m.type, enemyTypes) * (m.accuracy / 100);
-    if (score > bestScore) {
-      bestScore = score;
-      best = m;
-    }
+// -------------------------------------------------------------- turn logic ---
+/** The wild monster's answer, picked at random from the moves it knows. */
+function enemyChooseMove(s: GameState): MoveDef | null {
+  const b = s.battle;
+  if (!b.enemySpec) return null;
+  const moves = movesFor(b.enemySpec, b.enemyLevel);
+  if (!moves.length) return null;
+  const lead = battleLead(s);
+  const leadMon = lead ? s.mons.find((m) => m.uid === lead.uid) : null;
+  const targetTypes = leadMon ? entry(leadMon.species).types : [];
+  // it favours a move that hurts, but it does not always throw the same one
+  const table: [MoveDef, number][] = moves.map((m) => [
+    m,
+    0.4 + typeMultiplier(m.type, targetTypes) * (m.accuracy / 100),
+  ]);
+  return pickWeighted(table);
+}
+
+/** One side's attack landing on the other. */
+function applyAttack(s: GameState, side: TurnSide, target: TurnSide): void {
+  const b = s.battle;
+  const res = computeDamage(side.combatant, target.combatant, side.move);
+  const who = side.player ? entry(side.species).name : `Wild ${entry(side.species).name}`;
+  if (res.missed) {
+    pushBattleLog(b, `${who} used ${side.move.name} — it missed!`, 'miss');
+    return;
   }
-  return best;
+  const dealt = Math.max(1, Math.round(res.damage * (side.player ? 1 : WILD_DAMAGE_SCALE)));
+  target.mon.hp = Math.max(0, target.mon.hp - dealt);
+  const eff = res.effective > 1.5 ? ' — super effective!' : res.effective < 0.95 ? ' — resisted' : '';
+  const crit = res.crit ? ', a critical hit' : '';
+  pushBattleLog(
+    b,
+    `${who} used ${side.move.name} — ${dealt} damage${crit}${eff}`,
+    res.crit ? 'crit' : 'hit',
+  );
+}
+
+/** Build one side of a turn: the player's monster that is currently out. */
+function playerSide(s: GameState, mon: Mon, move: MoveDef, lead: BattleMon): TurnSide {
+  const combatant = { species: mon.species, level: mon.level, nature: mon.nature, iv: mon.iv };
+  return {
+    species: mon.species,
+    combatant,
+    move,
+    player: true,
+    speed: effectiveSpeed(combatant, mon.heldItem),
+    claw: mon.heldItem === QUICK_CLAW && chance(QUICK_CLAW_CHANCE),
+    mon: lead,
+  };
+}
+
+/** Build the other side: the wild monster, with the move it picked. */
+function enemySide(s: GameState, move: MoveDef): TurnSide | null {
+  const b = s.battle;
+  if (!b.enemy || !b.enemySpec) return null;
+  const combatant = { species: b.enemySpec, level: b.enemyLevel, nature: 'hardy', iv: 15 };
+  return {
+    species: b.enemySpec,
+    combatant,
+    move,
+    player: false,
+    speed: effectiveSpeed(combatant),
+    claw: false,
+    mon: b.enemy,
+  };
+}
+
+/** Your monster went down: send out the next one, or rest the whole party. */
+function handleFaint(s: GameState, side: TurnSide): void {
+  const b = s.battle;
+  pushBattleLog(b, `${entry(side.species).name} fainted!`, 'danger');
+  const next = battleLead(s);
+  if (next) {
+    const nextMon = s.mons.find((m) => m.uid === next.uid);
+    if (nextMon) pushBattleLog(b, `Go, ${entry(nextMon.species).name}!`, 'info');
+  } else {
+    // the whole party is down - they rest before anything else happens
+    b.timer = WIPE_REST;
+    pushBattleLog(b, 'Your team is beaten. They rest, then carry on.', 'danger');
+  }
+}
+
+/** The wild monster went down: pay out, count it, and maybe move on. */
+function handleEnemyFainted(s: GameState): void {
+  const b = s.battle;
+  const biome = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
+  const name = entry(b.enemySpec!).name;
+  awardBattleRewards(s, b.enemyLevel, false);
+  b.cleared += 1;
+  b.progress += 1;
+  pushBattleLog(b, `${name} fainted. +${battleCoins(b.enemyLevel, biome)} coins`, 'reward');
+  b.enemy = null;
+  b.enemySpec = null;
+  b.turn = 0;
+  b.timer = ENCOUNTER_DELAY;
+  if (b.progress >= b.rotateAt) rotateBiome(s);
 }
 
 /**
- * Fire one move. `forced` lets the player choose a specific move in the UI;
- * auto-battle otherwise picks the highest-scoring one that is off cooldown.
+ * Play one turn. The player has picked `moveId` for `monUid`; the wild monster
+ * answers with one of its own, and both act in priority/speed order.
  */
 export function useMove(s: GameState, monUid: string, moveId: string): { ok: boolean; text: string } {
   const b = s.battle;
   if (!b.enemy || !b.enemySpec) return { ok: false, text: 'No target.' };
+  const lead = battleLead(s);
+  if (!lead || lead.uid !== monUid) return { ok: false, text: 'That monster cannot act right now.' };
   const mon = s.mons.find((m) => m.uid === monUid);
-  const attacker = b.players.find((p) => p.uid === monUid);
-  if (!mon || !attacker || attacker.hp <= 0) return { ok: false, text: 'That monster cannot act.' };
-  const move = movesFor(mon.species).find((m) => m.id === moveId);
-  if (!move) return { ok: false, text: 'Unknown move.' };
-  if ((attacker.moveCooldowns[move.id] ?? 0) > 0) return { ok: false, text: `${move.name} is recharging.` };
-  if (attacker.cooldown > 0) return { ok: false, text: 'Not ready yet.' };
-  const res = resolveMove(s, mon, attacker, move);
-  attacker.cooldown = actionDelay(statsAt(mon.species, mon.level, mon.nature, mon.iv).spe);
-  return res;
-}
+  if (!mon) return { ok: false, text: 'That monster cannot act right now.' };
+  const move = movesFor(mon.species, mon.level).find((m) => m.id === moveId);
+  if (!move) return { ok: false, text: `${entry(mon.species).name} does not know that move.` };
 
-/** Seconds between actions for a monster of this speed. */
-function actionDelay(speed: number): number {
-  return Math.max(1.3, 2.7 - Math.min(1.4, speed / 420));
-}
+  b.turn += 1;
+  const mine = playerSide(s, mon, move, lead);
+  const enemyMove = enemyChooseMove(s);
+  const theirs = enemyMove ? enemySide(s, enemyMove) : null;
 
-function resolveMove(s: GameState, mon: Mon, attacker: BattleMon, move: MoveDef): { ok: boolean; text: string } {
-  const b = s.battle;
-  const speed = statsAt(mon.species, mon.level, mon.nature, mon.iv).spe;
-  attacker.moveCooldowns[move.id] = moveCooldown(move, speed);
-  attacker.cooldown = Math.min(attacker.cooldown, 0.3);
+  const first = theirs && actsFirst(theirs, mine) ? theirs : mine;
+  const second = first === mine ? theirs : mine;
 
-  const res = computeDamage(mon, b.enemySpec!, b.enemyLevel, move);
-  if (res.missed) {
-    pushBattleLog(b, `${entry(mon.species).name} used ${move.name} — it missed!`, 'miss');
-    return { ok: false, text: 'Missed.' };
+  applyAttack(s, first, second!);
+  // the slower monster only gets to move if it is still standing
+  if (second && second.mon.hp > 0) applyAttack(s, second, first);
+
+  if (b.enemy && b.enemy.hp <= 0) {
+    handleEnemyFainted(s);
+    return { ok: true, text: `${entry(mon.species).name} won the exchange.` };
   }
-  b.enemy!.hp -= res.damage;
-  const eff = res.effective > 1.5 ? ' (super effective!)' : res.effective < 0.7 ? ' (resisted)' : '';
-  pushBattleLog(
-    b,
-    `${entry(mon.species).name} used ${move.name} — ${res.damage} damage${res.crit ? ', critical!' : ''}${eff}`,
-    res.crit ? 'crit' : 'hit',
-  );
-  return { ok: true, text: `${move.name} hit for ${res.damage}.` };
+  if (mine.mon.hp <= 0) handleFaint(s, mine);
+  return { ok: true, text: `${move.name} hit.` };
 }
 
+/**
+ * Throwing a ball costs the turn: if the monster breaks out it gets a free
+ * swing, so throwing at full HP is a real decision rather than a free roll.
+ */
+function catchTurn(s: GameState): void {
+  const b = s.battle;
+  if (!b.enemy || !b.enemySpec) return;
+  const lead = battleLead(s);
+  const mon = lead ? s.mons.find((m) => m.uid === lead.uid) : null;
+  if (!lead || !mon) return;
+  const enemyMove = enemyChooseMove(s);
+  if (!enemyMove) return;
+  b.turn += 1;
+  const theirs = enemySide(s, enemyMove)!;
+  applyAttack(s, theirs, playerSide(s, mon, movesFor(mon.species, mon.level)[0], lead));
+  if (lead.hp <= 0) handleFaint(s, playerSide(s, mon, movesFor(mon.species, mon.level)[0], lead));
+}
+
+/**
+ * The tick paces the expedition; it never plays the fight. Between encounters
+ * it walks the next wild monster in, and a beaten party rests before the next
+ * one turns up - everything else waits for the player to take a turn.
+ */
 function advanceBattle(s: GameState, dt: number): void {
   const b = s.battle;
-  if (!b.auto) return;
-  const biome = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
-  const teamAlive = b.players.filter((p) => p.hp > 0);
+  // no team, no fight - the Battle screen asks the player to pick one
+  if (!b.team.length) return;
 
   if (!b.enemy || !b.enemySpec) {
-    startEncounter(s);
-    return;
-  }
-  if (!teamAlive.length) {
-    healTeam(s);
-    pushBattleLog(b, 'Your team was defeated. They rest, then continue.', 'danger');
-    b.progress = 0;
-    b.enemy = null;
+    b.timer -= dt;
+    if (b.timer <= 0) startEncounter(s);
     return;
   }
 
-  b.turn += dt;
-  // one action per monster per actionDelay keeps fights readable
-  b.enemy.cooldown = Math.max(0, b.enemy.cooldown - dt);
-  for (const p of b.players) p.cooldown = Math.max(0, p.cooldown - dt);
-  // tick every move cooldown down
-  for (const p of b.players) {
-    p.moveCooldowns ??= {};
-    for (const id of Object.keys(p.moveCooldowns)) {
-      p.moveCooldowns[id] = Math.max(0, p.moveCooldowns[id] - dt);
-    }
-  }
-  b.enemyCooldowns ??= {};
-  for (const id of Object.keys(b.enemyCooldowns)) {
-    b.enemyCooldowns[id] = Math.max(0, b.enemyCooldowns[id] - dt);
-  }
-
-  // --- player side: the lead monster acts ---
-  const lead = teamAlive[0];
-  const mon = s.mons.find((m) => m.uid === lead.uid)!;
-  const ready = movesFor(mon.species).filter((m) => (lead.moveCooldowns[m.id] ?? 0) <= 0);
-  if (ready.length && lead.cooldown <= 0) {
-    const pickBest = bestMove(s, mon, b.enemySpec);
-    const chosen = pickBest && ready.some((m) => m.id === pickBest.id) ? pickBest : ready[0];
-    if (resolveMove(s, mon, lead, chosen).ok || true) {
-      lead.cooldown = actionDelay(statsAt(mon.species, mon.level, mon.nature, mon.iv).spe);
-    }
-  }
-
-  // --- enemy side ---
-  if (b.enemy.hp > 0) {
-    const enemyMoves = movesFor(b.enemySpec);
-    const enemyReady = enemyMoves.filter((m) => (b.enemyCooldowns[m.id] ?? 0) <= 0);
-    if (enemyReady.length && b.enemy.cooldown <= 0) {
-      const target = b.players.find((p) => p.hp > 0);
-      if (target) {
-        const targetMon = s.mons.find((m) => m.uid === target.uid)!;
-        const enemyTypes = entry(b.enemySpec).types;
-        const move = enemyReady
-          .map((m) => ({ m, score: m.power * typeMultiplier(m.type, entry(targetMon.species).types) }))
-          .sort((a, c) => c.score - a.score)[0].m;
-        void enemyTypes;
-        const speed = statsAt(b.enemySpec, b.enemyLevel, 'hardy', 15).spe;
-        b.enemyCooldowns[move.id] = moveCooldown(move, speed);
-        b.enemy!.cooldown = actionDelay(speed);
-        const dmg = computeDamage({ species: b.enemySpec, level: b.enemyLevel, nature: 'hardy' }, targetMon.species, b.enemyLevel, move);
-        if (dmg.missed) {
-          pushBattleLog(b, `Wild ${entry(b.enemySpec).name} used ${move.name} — it missed!`, 'miss');
-        } else {
-          const dealt = Math.max(1, Math.round(dmg.damage * 0.85));
-          target.hp -= dealt;
-          pushBattleLog(b, `Wild ${entry(b.enemySpec).name} used ${move.name} — ${dealt} damage`, 'hit');
-        }
-      }
-    }
-  }
-
-  // --- enemy defeated ---
-  if (b.enemy.hp <= 0) {
-    awardBattleRewards(s, b.enemyLevel, false);
-    b.progress += 1;
-    pushBattleLog(b, `${entry(b.enemySpec).name} fainted. +${battleCoins(b.enemyLevel, biome)} coins`, 'reward');
-    b.enemy = null;
-    b.enemySpec = null;
-    b.enemyCooldowns = {};
-    if (b.progress >= b.rotateAt) {
-      rotateBiome(s);
-    }
-    return;
-  }
-
-  // auto-catch when the enemy is weak
-  if (s.options.autoCatch && b.enemy.hp / b.enemy.maxHp < 0.25 && b.enemySpec) {
-    const ball = pickBestBall(s);
-    if (ball) {
-      tryCatch(s, ball);
+  // the party is down: they rest, then the next monster walks in
+  if (!b.players.some((p) => p.hp > 0)) {
+    b.timer -= dt;
+    if (b.timer <= 0) {
+      healTeam(s);
+      pushBattleLog(b, 'Your team is back on its feet.', 'danger');
+      b.enemy = null;
+      b.enemySpec = null;
+      b.progress = 0;
+      b.turn = 0;
+      b.timer = ENCOUNTER_DELAY;
     }
   }
 }
 
+/**
+ * Move the expedition on. Clearing encounters is what pushes the level range
+ * up and opens the chance of a rarer tier; the area it lands on is a random
+ * pick inside that tier, so the same rarity still looks different each time.
+ */
 function rotateBiome(s: GameState): void {
   const b = s.battle;
-  const idx = Math.max(0, BIOMES.findIndex((x) => x.id === b.biomeId));
-  const next = BIOMES[(idx + 1) % BIOMES.length];
+  const current = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
+  const tier = rollBiomeTier(b.cleared, current.tier);
+  const next = randomBiomeOfTier(tier, b.biomeId);
+  b.tier = tier;
   b.biomeId = next.id;
   b.progress = 0;
-  b.rotateAt = rndInt(18, 32);
-  pushBattleLog(b, `The area changed — you wander into ${next.name}.`, 'info');
-  log(s, `🧭 Battle area rotated to ${next.name}`, 'info');
-}
-
-export function pickBestBall(s: GameState): string | null {
-  const order = ['master-ball', 'ultra-ball', 'great-ball', 'poke-ball'];
-  for (const id of order) {
-    if ((s.balls[id] ?? 0) > 0) return id;
-  }
-  return null;
+  b.rotateAt = rndInt(8, 14);
+  const climbed = tier > current.tier;
+  pushBattleLog(
+    b,
+    climbed
+      ? `The trail climbs — you come to ${next.name} (${tierOf(next).name}).`
+      : `You wander on into ${next.name}.`,
+    'info',
+  );
+  log(s, `🧭 Battle area: ${next.name} (${tierOf(next).name})`, 'info');
 }
 
 export function tryCatch(s: GameState, ballId: string): { ok: boolean; text: string } {
@@ -621,9 +658,13 @@ export function tryCatch(s: GameState, ballId: string): { ok: boolean; text: str
     b.rewards.items['__caught'] = (b.rewards.items['__caught'] ?? 0) + 1;
     b.enemy = null;
     b.enemySpec = null;
+    b.turn = 0;
+    b.timer = ENCOUNTER_DELAY;
     return { ok: true, text: `Caught ${entry(mon.species).name}!` };
   }
   pushBattleLog(b, `${entry(b.enemySpec).name} broke free!`, 'miss');
+  // the throw used the turn, so the wild monster gets to swing
+  catchTurn(s);
   return { ok: false, text: 'It broke free!' };
 }
 

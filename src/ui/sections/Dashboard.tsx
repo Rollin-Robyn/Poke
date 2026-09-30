@@ -2,7 +2,7 @@ import React from 'react';
 import { useGame } from '../store';
 import { Bar, ItemSprite, MonArt, Panel, RarityTag, Sprite, Stat, TypeTag } from '../components';
 import {
-  DAILY_CRATE_MS, HABITAT_BY_ID, HOURLY_CRATE_MS, currentEvent, dailyCrateDiamonds, entry,
+  HABITAT_BY_ID, HOURLY_CRATE_MS, DIAMOND_EXCHANGE_GAIN, currentEvent, diamondExchangeCost, entry,
   globalCoinMultiplier, habitatProduction, habitatSlots, hourlyCrateCoins, housedCount,
   monsInHabitat, productionPerMinute, storageCap, totalHabitatSlots, transferHint,
 } from './shared';
@@ -12,7 +12,8 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
   const { state, dispatch } = useGame();
   const now = Date.now();
   const hourlyReady = now - state.crates.hourly >= HOURLY_CRATE_MS;
-  const dailyReady = now - state.crates.daily >= DAILY_CRATE_MS;
+  const exchangeCost = diamondExchangeCost(state);
+  const canExchange = state.coins >= exchangeCost;
   const ppm = productionPerMinute(state);
   const event = currentEvent();
   const housed = housedCount(state);
@@ -45,16 +46,12 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
         </Panel>
 
         <Panel
-          title="Supply crates"
-          right={
-            <span className="tag">
-              {hourlyReady || dailyReady ? 'ready' : 'refilling'}
-            </span>
-          }
+          title="Supply crate & coin exchange"
+          right={<span className="tag">{hourlyReady ? 'crate ready' : 'refilling'}</span>}
         >
           <div className="stack" style={{ gap: 10 }}>
             <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="btn primary sm" disabled={!hourlyReady} onClick={() => dispatch({ type: 'CLAIM_CRATE', kind: 'hourly' })}>
+              <button className="btn primary sm" disabled={!hourlyReady} onClick={() => dispatch({ type: 'CLAIM_CRATE' })}>
                 📦 Hourly crate
               </button>
               <span className="small muted">
@@ -62,12 +59,22 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
               </span>
             </div>
             <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="btn primary sm" disabled={!dailyReady} onClick={() => dispatch({ type: 'CLAIM_CRATE', kind: 'daily' })}>
-                🎁 Daily delivery
+              <button
+                className="btn primary sm"
+                disabled={!canExchange}
+                onClick={() => dispatch({ type: 'CONVERT_COINS_TO_DIAMONDS' })}
+                title="Diamonds come out of the reserve: trade a pile of coins for one"
+              >
+                💠 Coin exchange
               </button>
               <span className="small muted">
-                💎 {dailyCrateDiamonds(state)} + 15 event tokens · {dailyReady ? 'ready now' : `in ${fmtTime(Math.ceil((DAILY_CRATE_MS - (now - state.crates.daily)) / 1000))}`}
+                ⛁ {fmt(exchangeCost)} → {DIAMOND_EXCHANGE_GAIN} 💎 · {state.diamondExchanges} traded
+                {canExchange ? '' : ' · not enough coins'}
               </span>
+            </div>
+            <div className="tiny dim">
+              There is no daily delivery. Diamonds are earned: the exchange above, achievements, rare wild drops,
+              the casino and rebirths. Event tokens come out of encounters while a festival is running.
             </div>
           </div>
         </Panel>
