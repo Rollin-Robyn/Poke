@@ -29,6 +29,10 @@ export {
   learnsetOf, tierOf, effectiveSpeed, actsFirst, biomeLevelRange, levelBonus,
 } from '../../game/battle';
 export { breedingCompatible, breedingTime, canRebirth, rebirthGain } from '../../game/reducer';
+export {
+  GALLERY, GALLERY_SPECIES, galleryLockReason, galleryProgress, galleryUnlocked, galleryUrl, galleryPieceFor,
+  type GalleryPiece, type GalleryVariant,
+} from '../../game/gallery';
 export { TYPE_COLORS, TYPE_GLYPH, effectivenessLabel, typeMultiplier } from '../../game/typechart';
 export { fmt, fmtTime, fmtPct } from '../../game/rng';
 

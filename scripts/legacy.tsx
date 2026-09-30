@@ -17,6 +17,7 @@ import { Habitats } from '../src/ui/sections/Habitats';
 import { Eggs } from '../src/ui/sections/Eggs';
 import { Roster } from '../src/ui/sections/Roster';
 import { Pokedex } from '../src/ui/sections/Pokedex';
+import { Gallery } from '../src/ui/sections/Gallery';
 import { Breeding } from '../src/ui/sections/Breeding';
 import { Battle } from '../src/ui/sections/Battle';
 import { Events } from '../src/ui/sections/Events';
@@ -26,6 +27,7 @@ import { Settings } from '../src/ui/sections/Settings';
 import { simulate } from '../src/game/reducer';
 import { reduce as gameReduce } from '../src/game/actions';
 import { habitatFreeSlots, habitatSlots } from '../src/game/state';
+import { galleryProgress } from '../src/game/gallery';
 
 const reduce = (state: GameState, action: Parameters<typeof gameReduce>[1]): GameState =>
   gameReduce(state, action);
@@ -176,6 +178,9 @@ check('a habitat has a free slot', !!freeHab);
   }
 }
 
+// frames only open on a catch, so a save that predates the gallery opens none
+const gUnlocked = galleryProgress(s).unlocked;
+
 let tickError: string | null = null;
 try {
   for (let i = 0; i < 600; i++) simulate(s, 1);
@@ -188,6 +193,9 @@ check('the battle keeps fighting with a stale team uid', s.battle.team.length ==
 check('battle players carry hit points only', s.battle.players.every((p) => typeof p.hp === 'number' && !('cooldown' in p)));
 check('the battle picks up the tier of its area', s.battle.tier >= 1 && s.battle.tier <= 4, String(s.battle.tier));
 check('the daily crate is dropped on migration', !('daily' in s.crates), JSON.stringify(Object.keys(s.crates)));
+// the shiny dex record did not exist when this save was written
+check('an old save gains an empty shiny record', Array.isArray(s.dexShiny), JSON.stringify(s.dexShiny));
+check('and the gallery still opens nothing for it', gUnlocked === 0, String(gUnlocked));
 // auto-battle and auto-catch were removed; an old save must not drag them back
 check('the retired auto-battle flag is dropped', !('auto' in s.battle), JSON.stringify(Object.keys(s.battle)));
 check('the retired auto-catch option is dropped', !('autoCatch' in s.options), JSON.stringify(Object.keys(s.options)));
@@ -201,6 +209,7 @@ const screens: [string, React.FC<never>, Record<string, unknown> | undefined][] 
   ['Eggs', Eggs as unknown as React.FC<never>, undefined],
   ['Roster', Roster as unknown as React.FC<never>, undefined],
   ['Pokedex', Pokedex as unknown as React.FC<never>, undefined],
+  ['Gallery', Gallery as unknown as React.FC<never>, undefined],
   ['Breeding', Breeding as unknown as React.FC<never>, undefined],
   ['Battle', Battle as unknown as React.FC<never>, undefined],
   ['Events', Events as unknown as React.FC<never>, undefined],

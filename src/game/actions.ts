@@ -62,7 +62,6 @@ export type Action =
   | { type: 'CLEAR_CASINO' }
   | { type: 'REBIRTH' }
   | { type: 'UNLOCK_FORM'; species: string; form: string; cost: number }
-  | { type: 'UNLOCK_GALLERY'; species: string; kind: string; cost: number }
   | { type: 'CLAIM_EVENT'; rewardIndex: number }
   | { type: 'CLAIM_CRATE' }
   | { type: 'CONVERT_COINS_TO_DIAMONDS' }
@@ -779,19 +778,6 @@ export function reduce(state: GameState, action: Action): GameState {
       s.diamonds -= action.cost;
       s.formsUnlocked.push(key);
       say(s, `Form unlocked: ${entry(action.species).name}.`, 'good');
-      break;
-    }
-
-    case 'UNLOCK_GALLERY': {
-      const key = `${action.species}:${action.kind}`;
-      if (s.galleryUnlocked.includes(key)) break;
-      if (s.diamonds < action.cost) {
-        say(s, 'Not enough diamonds.', 'bad');
-        break;
-      }
-      s.diamonds -= action.cost;
-      s.galleryUnlocked.push(key);
-      say(s, 'Gallery piece unlocked.', 'good');
       break;
     }
 

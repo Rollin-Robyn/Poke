@@ -370,6 +370,9 @@ export function actsFirst(a: TurnSide, b: TurnSide): boolean {
 export function catchChance(state: GameState, ballId: string, ctx: CatchContext): number {
   const ball = BALL_BY_ID[ballId];
   if (!ball) return 0;
+  // the master ball is the one ball the pouch promises never fails, so it is
+  // not rolled against the clamp the others share
+  if (ball.id === 'master-ball') return 1;
   const rarityFactor: Record<Rarity, number> = {
     common: 0.3, uncommon: 0.2, rare: 0.11, epic: 0.055, legendary: 0.02,
   };

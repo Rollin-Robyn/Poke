@@ -6,6 +6,7 @@ import { Habitats } from './sections/Habitats';
 import { Eggs } from './sections/Eggs';
 import { Roster } from './sections/Roster';
 import { Pokedex } from './sections/Pokedex';
+import { Gallery } from './sections/Gallery';
 import { Breeding } from './sections/Breeding';
 import { Battle } from './sections/Battle';
 import { Events } from './sections/Events';
@@ -20,6 +21,7 @@ const TABS: { id: string; label: string; icon: string }[] = [
   { id: 'eggs', label: 'Eggs', icon: '🥚' },
   { id: 'roster', label: 'My Pokémon', icon: '🐾' },
   { id: 'dex', label: 'Pokédex', icon: '📖' },
+  { id: 'gallery', label: 'Gallery', icon: '🖼️' },
   { id: 'breeding', label: 'Breeding', icon: '💞' },
   { id: 'battle', label: 'Battle', icon: '⚔️' },
   { id: 'events', label: 'Events', icon: '🎉' },
@@ -122,6 +124,7 @@ export function App() {
         {tab === 'eggs' && <Eggs />}
         {tab === 'roster' && <Roster />}
         {tab === 'dex' && <Pokedex />}
+        {tab === 'gallery' && <Gallery />}
         {tab === 'breeding' && <Breeding />}
         {tab === 'battle' && <Battle />}
         {tab === 'events' && <Events />}

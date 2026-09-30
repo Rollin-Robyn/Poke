@@ -19,15 +19,25 @@
 
 * { box-sizing: border-box; }
 
-html, body, #root { height: 100%; }
+/* The page grows past the viewport, so heights are floors, not caps: a hard
+   height:100% made the gradient below stop at one screen and then tile. */
+html, body, #root { min-height: 100vh; }
+
+html {
+  /* the backdrop lives on the root and is pinned to the viewport, so it never
+     repeats and never runs out halfway down a long screen */
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(1100px 700px at 12% -8%, rgba(90, 120, 255, 0.16), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(255, 170, 80, 0.1), transparent 55%),
+    radial-gradient(900px 700px at 50% 100%, rgba(120, 255, 190, 0.07), transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
 
 body {
   margin: 0;
-  background:
-    radial-gradient(1100px 700px at 12% -10%, rgba(90, 120, 255, 0.16), transparent 60%),
-    radial-gradient(900px 600px at 100% 0%, rgba(255, 170, 80, 0.1), transparent 55%),
-    radial-gradient(800px 700px at 50% 120%, rgba(120, 255, 190, 0.07), transparent 60%),
-    var(--bg);
+  background: transparent;
   color: var(--text);
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: 14px;
@@ -36,7 +46,7 @@ body {
 
 button { font-family: inherit; }
 
-.app { display: flex; flex-direction: column; min-height: 100%; }
+.app { display: flex; flex-direction: column; min-height: 100vh; }
 
 /* ---------------------------------------------------------------- topbar */
 .topbar {
@@ -239,8 +249,13 @@ input[type='range'] { accent-color: var(--gold); }
 .arena .side.enemy { background: radial-gradient(120% 90% at 50% 0%, rgba(240,113,120,.14), rgba(255,255,255,.02)); }
 .arena .vssign { font-weight: 900; color: var(--dim); letter-spacing: 1px; }
 .hpwrap { width: 100%; display: flex; flex-direction: column; gap: 4px; }
+/* A log panel stretches to the height of its row and the list inside scrolls:
+   the fight feed fills the column instead of stopping at a few lines. */
+.panel.fill { display: flex; flex-direction: column; }
+.panel.fill > .row:first-child { flex: 0 0 auto; }
 .log {
-  font-size: 12px; line-height: 1.55; max-height: 190px; overflow-y: auto;
+  font-size: 12px; line-height: 1.55;
+  flex: 1 1 auto; min-height: 240px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 2px; padding-right: 4px;
 }
 .log div { padding: 2px 6px; border-radius: 6px; }
@@ -288,6 +303,32 @@ input[type='range'] { accent-color: var(--gold); }
 .dex-cell .num { position: absolute; top: 3px; left: 6px; font-size: 10px; color: var(--dim); font-weight: 700; }
 .dex-cell .q { font-size: 26px; color: var(--dim); font-weight: 800; }
 .dex-cell .state { position: absolute; bottom: 3px; right: 5px; font-size: 10px; }
+
+/* ---------------------------------------------------------------- gallery */
+.gallery-frame {
+  border-radius: var(--radius); border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  overflow: hidden; display: flex; flex-direction: column; cursor: pointer;
+  transition: border-color .15s, transform .12s;
+}
+.gallery-frame:hover { border-color: var(--line-2); transform: translateY(-2px); }
+.gallery-frame.shiny { border-color: rgba(246, 224, 94, .45); }
+.gallery-frame.locked { cursor: default; }
+.gallery-frame.locked:hover { transform: none; }
+.gallery-frame .art {
+  aspect-ratio: 1/1; width: 100%; display: grid; place-items: center;
+  background: rgba(0, 0, 0, .22); overflow: hidden;
+}
+.gallery-frame .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-frame .art .lock { font-size: 28px; opacity: .5; }
+.gallery-frame .cap {
+  padding: 8px 10px; border-top: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 2px; font-size: 13px;
+}
+.gallery code {
+  background: rgba(0, 0, 0, .35); border: 1px solid var(--line);
+  border-radius: 6px; padding: 1px 5px; font-size: 11.5px;
+}
 
 /* -------------------------------------------------------------- scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }

@@ -61,7 +61,7 @@ export function Settings() {
           <label className="row between" style={{ gap: 12, cursor: 'pointer' }}>
             <span>
               <b>Show back sprites</b>
-              <div className="tiny dim">Use the back-view artwork in the Pokédex gallery.</div>
+              <div className="tiny dim">Use the back-view sprites instead of the front ones.</div>
             </span>
             <input
               type="checkbox"

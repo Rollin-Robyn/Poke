@@ -1,4 +1,5 @@
 import { DEX, DEX_IDS } from './dex';
+import { galleryProgress } from './gallery';
 import type { GameState } from './state';
 
 export interface AchievementDef {
@@ -31,6 +32,6 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'legendary', name: 'Myth Maker', blurb: 'Obtain a legendary monster.', icon: '🌟', diamonds: 50, check: (s) => s.mons.some((m) => DEX[m.species]?.rarity === 'legendary') },
   { id: 'rebirth', name: 'New Cycle', blurb: 'Rebirth once.', icon: '🌀', diamonds: 75, check: (s) => s.rebirths >= 1 },
   { id: 'casino', name: 'Lucky Streak', blurb: 'Win 100k profit at the casino.', icon: '🎰', diamonds: 30, check: (s) => s.stats.casinoNet >= 100_000 },
-  { id: 'gallery', name: 'Curator', blurb: 'Unlock 10 gallery pieces.', icon: '🖼️', diamonds: 40, check: (s) => s.galleryUnlocked.length >= 10 },
+  { id: 'gallery', name: 'Curator', blurb: 'Open 10 gallery frames.', icon: '🖼️', diamonds: 40, check: (s) => galleryProgress(s).unlocked >= 10 },
   { id: 'all-forms', name: 'Form Fanatic', blurb: 'Unlock 12 alternate forms.', icon: '🎭', diamonds: 150, check: (s) => s.formsUnlocked.length >= 12 },
 ];

@@ -40,6 +40,10 @@ export function Roster() {
   const pages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
   const mon = detail ? state.mons.find((m) => m.uid === detail) : null;
   const heldItems = Object.entries(state.itemBag).filter(([id, q]) => q > 0 && (ITEM_BY_ID[id]?.kind === 'held'));
+  // habitatId points at a habitat instance, so go through the instance to its
+  // definition - looking the instance id up in the def map crashed the modal
+  const home = mon?.habitatId ? state.habitats.find((h) => h.id === mon!.habitatId) : null;
+  const homeName = home ? HABITAT_BY_ID[home.defId]?.name ?? 'Storage' : 'Storage';
 
   return (
     <div className="stack" style={{ gap: 14 }}>
@@ -182,7 +186,7 @@ export function Roster() {
               <Panel title="Details">
                 <div className="stack small">
                   <div className="row between"><span className="muted">Nature</span><span>{mon.nature} · {natureBlurb(mon.nature)}</span></div>
-                  <div className="row between"><span className="muted">Habitat</span><span>{mon.habitatId ? HABITAT_BY_ID[mon.habitatId].name : 'Storage'}</span></div>
+                  <div className="row between"><span className="muted">Habitat</span><span>{homeName}</span></div>
                   <div className="row between"><span className="muted">Sleeps after</span><span>{fmtTime(mon.energy)}</span></div>
                   <div className="row between"><span className="muted">Breeding</span>
                     <span>{mon.breedReadyAt && mon.breedReadyAt > Date.now() ? `resting ${fmtTime((mon.breedReadyAt - Date.now()) / 1000)}` : 'ready'}</span>

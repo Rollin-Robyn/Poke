@@ -421,6 +421,49 @@ console.log('\ndiamonds and event tickets');
   check('encounters pay event tokens while an event runs', e.eventTokens > 0, `${e.eventTokens} in ${e.stats.battlesWon} wins`);
 }
 
+// ---------------------------------------------------------------- gallery ---
+console.log('\ngallery frames');
+{
+  const s = fresh('charmander');
+  check('the gallery ships with no artwork', g.GALLERY.length === 0, `${g.GALLERY.length} pieces`);
+  check('so an untouched gallery has no frames', g.galleryProgress(s).total === 0, String(g.galleryProgress(s).total));
+  check('a frame stays shut until the species is caught', !g.galleryUnlocked(s, 'pikachu', 'normal'));
+  s.dexCaught.push('pikachu');
+  check('catching the species opens its frame', g.galleryUnlocked(s, 'pikachu', 'normal'));
+  check('and the shiny frame stays shut without a shiny', !g.galleryUnlocked(s, 'pikachu', 'shiny'));
+  s.dexShiny.push('pikachu');
+  check('a shiny catch opens the shiny frame', g.galleryUnlocked(s, 'pikachu', 'shiny'));
+  check('the two frames are counted separately', (() => {
+    const p = g.galleryProgress(s);
+    return p.total === 0 && p.unlocked === 0;
+  })());
+
+  // a shiny catch is written into the dex, so it outlives the monster itself
+  const t = fresh('charmander');
+  Object.assign(t, g.reduce(t, { type: 'SET_TEAM', uids: [t.mons[0].uid] }));
+  for (let i = 0; i < 20 && !t.battle.enemy; i++) g.simulate(t, 2);
+  const species = t.battle.enemySpec;
+  t.battle.enemyShiny = true;
+  t.balls['master-ball'] = 1;
+  check('a master ball never fails', g.catchChance(t, 'master-ball', {
+    turns: 1, hpFrac: 1, enemyTypes: ['Normal'], enemyLevel: 50, enemyRarity: 'legendary',
+    biomeId: t.battle.biomeId, alreadyCaught: false, hour: 12,
+  }) === 1);
+  const caught = g.tryCatch(t, 'master-ball');
+  check('catching a shiny registers the shiny frame', caught.ok && t.dexShiny.includes(species), `${caught.text} (${species})`);
+  if (caught.ok && t.mons.length > 1) {
+    const shinyUid = t.mons[t.mons.length - 1].uid;
+    Object.assign(t, g.reduce(t, { type: 'RELEASE', uid: shinyUid }));
+    check('releasing it does not shut the frame', t.dexShiny.includes(species), JSON.stringify(t.dexShiny));
+  }
+
+  // frames are earned, never bought
+  const u = fresh('charmander');
+  u.diamonds = 500;
+  Object.assign(u, g.reduce(u, { type: 'UNLOCK_GALLERY', species: 'pikachu', kind: 'art-normal', cost: 10 }));
+  check('no frame can be bought with diamonds', u.diamonds === 500 && u.galleryUnlocked.length === 0, `${u.diamonds} / ${u.galleryUnlocked.length}`);
+}
+
 // ----------------------------------------------------------- reducer purity --
 // React may run a reducer twice for one dispatch (StrictMode does exactly that
 // in development). A shallow clone made the second pass mutate the state the

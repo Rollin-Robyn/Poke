@@ -12,6 +12,7 @@ import { Habitats } from '../src/ui/sections/Habitats';
 import { Eggs } from '../src/ui/sections/Eggs';
 import { Roster } from '../src/ui/sections/Roster';
 import { Pokedex } from '../src/ui/sections/Pokedex';
+import { Gallery } from '../src/ui/sections/Gallery';
 import { Breeding } from '../src/ui/sections/Breeding';
 import { Battle } from '../src/ui/sections/Battle';
 import { Events } from '../src/ui/sections/Events';
@@ -65,7 +66,7 @@ function richState(): GameState {
   s.mons.push(makeMon('rotom', 20, { shiny: true }));
   s.dexCaught.push('rotom');
   s.formsUnlocked.push('rotom:frost');
-  s.galleryUnlocked.push('pikachu:art-normal');
+  s.dexShiny.push('rotom');
   s.achievements.push('first-mon', 'first-hatch');
 
   // three habitats of the new instance shape, one monotype and two multitype
@@ -126,6 +127,7 @@ const screens: [string, React.FC<never>][] = [
   ['Eggs', Eggs as unknown as React.FC<never>],
   ['Roster', Roster as unknown as React.FC<never>],
   ['Pokedex', Pokedex as unknown as React.FC<never>],
+  ['Gallery', Gallery as unknown as React.FC<never>],
   ['Breeding', Breeding as unknown as React.FC<never>],
   ['Battle', Battle as unknown as React.FC<never>],
   ['Events', Events as unknown as React.FC<never>],

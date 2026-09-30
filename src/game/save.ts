@@ -103,6 +103,7 @@ function migrate(state: GameState): GameState {
   merged.diamondExchanges = Number(merged.diamondExchanges) || 0;
   merged.dexSeen ??= [];
   merged.dexCaught ??= [];
+  merged.dexShiny ??= [];
   merged.eventClaimed ??= [];
   merged.mons ??= [];
   merged.balls ??= { 'poke-ball': 10 };

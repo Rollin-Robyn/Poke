@@ -21,7 +21,8 @@ Ten screens, wired together so each one feeds the next.
 | **My Habitats** | The habitats you own as instances, with the monsters inside them and their income. Monotype habitats are cheap; multitype habitats hold two or three types and cost a fortune. Both get more expensive the more of that class you own, and you can own duplicates. A fresh habitat holds **one** monster; every capacity upgrade adds exactly **+1**. |
 | **Eggs** | Stockpile with an upgradable cap, five incubator tiers (faster + more slots), five egg tiers, a buy-egg section and the seasonal **festival egg**. Hatching always gives a **level 1** monster — the reward is rarity, not levels. |
 | **My Pokémon** | The full roster as cards: art, types, nature, production/min, happiness and sleep timer. Sort by level / output / rarity / dex number / recent. Hold items, feed berries, evolve, release. |
-| **Pokédex** | All 649 species. Uncaught species show a `?`. Detail view with base stats, breeding data, evolutions, the **moves by level** learnset, and a **Gallery** where the extra artwork (shiny, back, female, forms) is unlocked with diamonds. |
+| **Pokédex** | All 649 species. Uncaught species show a `?`. Detail view with base stats, breeding data, evolutions, the **moves by level** learnset, and whether this species' gallery frames are open. |
+| **Gallery** | The artwork collection, and it is **empty until you add art**. One frame per picture found in `public/gallery/`; a frame opens when you catch that species, and the shiny frame opens only when you catch one **shiny**. Artwork is not the battle sprites, and nothing is bought with diamonds. |
 | **Breeding** | Zones, an active pair display and parent selection. One male + one female, matching type (or one Normal) and a shared egg group. Egg rarity follows the parents; they rest afterwards. |
 | **Battle** | Turn-based and played **by hand**. You pick a move, then both monsters act once, ordered by move priority, then speed, then held items (Choice Scarf, Quick Claw, Macho Brace) — with a speed roll, so a close call can go either way. A team of **six**; every monster knows the four moves it learned most recently from its species' learnset, so moves grow with level. Twelve areas in four tiers: rarer ground holds rarer monsters, clearing encounters pushes the level range up and opens the chance of a rarer tier, and the trail picks a random area inside that tier so the same rarity keeps looking different. Catching with 14 ball types — a throw costs the turn — and trainer battles every 25th win. |
 | **Events** | Four seasonal events driven by the real calendar, each unlocking forms that exist in your repo and paying out **epic-tier** rewards for event tokens. |
@@ -38,8 +39,16 @@ a large pile of coins at the exchange on the Dashboard, and every trade costs mo
 one before it (25 K, 36 K, 52 K, …), so a fat bank buys a handful of gems rather than the
 whole shop. Event tickets only drop while a festival is running.
 
+**The gallery is artwork, not sprites.** `public/gallery/` ships empty, so the Gallery screen
+starts with nothing to show — the frames are there, the pictures are not. Drop
+`bulbasaur.png` (or `001.png`) in that folder, run `npm run gallery`, and a frame appears for
+it. A frame opens when you **catch that species**; a `-shiny` file gets its own frame that
+opens only on a **shiny catch**, so the two are collected separately. The record lives in the
+Pokédex, so releasing the monster or rebirthing never shuts a frame again.
+
 **Diamonds are the premium track.** Radiant and mythic eggs are bought with diamonds only,
-and so are the diamond upgrades and the gallery artwork.
+and so are the diamond upgrades and the alternate forms. Gallery frames are **not** sold —
+they open by catching the monster in the picture.
 
 **Money comes from monsters, not multipliers.** There is no "+% coins" upgrade anywhere.
 Income is a product of how many monsters you house (habitat capacity) and how rare they are
@@ -67,7 +76,7 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 
 ## Rules that are enforced (and tested)
 
-`npm run checks` asserts the design rules against the real game logic — 148 checks:
+`npm run checks` asserts the design rules against the real game logic — 159 checks:
 
 - the starter flow hands over **only** the chosen starter, in a **monotype habitat of its own
   type**, level 1, with no free monsters and no extra habitats;
@@ -106,6 +115,10 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 - an exported save can be imported again (base64 or raw JSON) and junk text is rejected;
 - a rebirth keeps the Pokédex, achievements, gallery, unlocked forms, event tokens, diamonds
   and rebirth coins, and resets the reserve itself;
+- the gallery ships with **no artwork**, and a frame opens by catching that species — the
+  shiny frame needs a shiny catch of its own, stays open after the monster is released, and
+  no frame can be bought with diamonds;
+- a master ball never fails, which is what the pouch promises;
 - version-1 saves (`{ habId, slots }`) migrate onto the new habitat instances with their
   capacity preserved.
 
@@ -116,6 +129,7 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 Your repo is used directly — nothing was replaced or re-drawn.
 
 ```
+public/gallery/             (empty) artwork for the Gallery screen — see its README
 public/sprites/gen5/        3372 files: 0001–0649.png, shiny/, female/, back/, back/shiny/…,
                             plus 104 alternate forms (0479-wash.png, 0585-autumn.png, …)
 public/sprites/items/flat/  661 item sprites (balls, berries, stones, held items)
@@ -144,6 +158,7 @@ excluded from movesets because they are all the same move on a different type.
 ```
 scripts/
   build-data.mjs      dex + item manifest generator (reads the sprite folders)
+  build-gallery.mjs   scans public/gallery and writes the gallery manifest
   flatten-items.mjs   one-off used to flatten the item sprites (already applied)
   sim-entry.ts        re-export surface for the tooling
   checks.mjs          the acceptance checks above
@@ -152,11 +167,12 @@ scripts/
   smoke.tsx           renders every screen under Node to catch crashes
 src/game/             pure logic, no React
   dex.ts  content.ts  state.ts  reducer.ts  actions.ts  battle.ts
+  gallery.ts          which frames exist and which ones your dex has opened
   typechart.ts  natures.ts  achievements.ts  casino.ts  save.ts  rng.ts
 src/ui/
   store.ts            game loop (8 Hz), autosave, offline report
   components.tsx      Panel, MonCard, Sprite, Bar, Modal…
-  sections/           the ten screens
+  sections/           the eleven screens
   theme.css
 ```
 
@@ -166,8 +182,9 @@ src/ui/
 npm run dev        play it (hot reload)
 npm run build      typecheck + production build into dist/
 npm run typecheck  tsc --noEmit
-npm run data       regenerate dex.json / items.json
-npm run checks     assert the design rules (148 checks)
+npm run data       regenerate dex.json / items.json / gallery.json
+npm run gallery    rescan public/gallery and rebuild the manifest
+npm run checks     assert the design rules (159 checks)
 npm run smoke      render every screen headlessly on a played save *and* a new one
 npm run legacy     load a pre-rework save and check it migrates cleanly
 npm run verify     typecheck + checks + smoke + build
@@ -215,9 +232,9 @@ Offline progress is capped at 12 hours and reported when you come back.
 
 ## Ideas for the next pass
 
-- **Gallery art** — the current pieces reuse shiny/back/female/form sprites. If you draw or
-  commission extra artwork (or use the tileset PDF in the repo for habitat backgrounds),
-  drop it in `public/` and add entries next to the existing gallery list in `Pokedex.tsx`.
+- **Gallery art** — the frames are wired and waiting. Drop a picture into `public/gallery/`
+  as `bulbasaur.png` (or `001.png`) and `bulbasaur-shiny.png`, run `npm run gallery`, and it
+  appears behind a frame that opens on the catch. `public/gallery/README.md` has the naming.
 - **Items** — 661 item sprites are wired up as data but many have no effect yet; adding more
   is data-only work in `src/game/content.ts` (`ITEMS`).
 - **Form unlocks** — 104 forms exist; the event and shop ones are obtainable, and a "form

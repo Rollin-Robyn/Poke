@@ -7,7 +7,7 @@ import { NATURES } from '../../game/natures';
 type Filter = 'all' | 'caught' | 'seen' | 'missing' | 'shiny';
 
 export function Pokedex() {
-  const { state, dispatch } = useGame();
+  const { state } = useGame();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export function Pokedex() {
           <div className="row" style={{ gap: 14 }}>
             <span className="small muted">👁 seen {seen.size}</span>
             <span className="small muted">✅ caught {caught.size}</span>
-            <span className="small muted">✨ shiny forms {state.mons.filter((m) => m.shiny).length}</span>
+            <span className="small muted">✨ shiny registered {state.dexShiny.length}</span>
             <span className="small muted">🎭 forms {state.formsUnlocked.length}</span>
           </div>
           <input
@@ -176,32 +176,14 @@ export function Pokedex() {
 
               <Panel title="Gallery">
                 <div className="small muted" style={{ marginBottom: 10 }}>
-                  Unlock extra artwork with diamonds. Gallery pieces are permanent and survive rebirth.
+                  Artwork frames live in their own screen. Catching this species opens its frame there; a shiny
+                  catch opens the shiny frame as well.
                 </div>
-                <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8 }}>
-                  {[
-                    { kind: 'art-normal', label: 'Field Sketch', cost: 10, props: {} },
-                    { kind: 'art-shiny', label: 'Shiny Study', cost: 25, props: { shiny: true } },
-                    { kind: 'art-back', label: 'Back View', cost: 15, props: { back: true } },
-                    ...(e.hasFemale ? [{ kind: 'art-female', label: 'Female Form', cost: 15, props: { female: true } }] : []),
-                  ].map((piece) => {
-                    const key = `${open}:${piece.kind}`;
-                    const have = state.galleryUnlocked.includes(key);
-                    return (
-                      <div key={piece.kind} className="dex-cell" style={{ cursor: 'default', aspectRatio: '1/1.15' }}>
-                        <Sprite species={open!} size="md" {...(piece.props as object)} className={have ? '' : 'dimmed'} />
-                        <div className="tiny center" style={{ marginTop: 4 }}>{piece.label}</div>
-                        <button
-                          className={`btn xs ${have ? '' : 'primary'}`}
-                          style={{ marginTop: 4 }}
-                          disabled={have || state.diamonds < piece.cost}
-                          onClick={() => dispatch({ type: 'UNLOCK_GALLERY', species: open!, kind: piece.kind, cost: piece.cost })}
-                        >
-                          {have ? 'Unlocked' : `💎 ${piece.cost}`}
-                        </button>
-                      </div>
-                    );
-                  })}
+                <div className="row" style={{ gap: 8 }}>
+                  <span className="tag">{caught.has(open!) ? '✅ frame open' : '🔒 frame locked'}</span>
+                  <span className="tag" style={{ color: 'var(--gold)', borderColor: 'rgba(246,224,94,.45)' }}>
+                    {state.dexShiny.includes(open!) ? '✨ shiny frame open' : '🔒 shiny frame locked'}
+                  </span>
                 </div>
               </Panel>
             </div>

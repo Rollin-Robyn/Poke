@@ -138,7 +138,10 @@ export interface GameState {
   shardUpgrades: Record<string, number>;
   dexSeen: string[];
   dexCaught: string[];
+  /** species caught as shiny at least once — opens the shiny gallery frames */
+  dexShiny: string[];
   formsUnlocked: string[];
+  /** retired: frames used to be bought with diamonds. Kept so old saves load. */
   galleryUnlocked: string[];
   achievements: string[];
   shopUnlocked: string[];

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useGame } from '../store';
 import { Bar, ItemSprite, Modal, Panel, Sprite, TypeTag } from '../components';
 import { TYPE_COLORS, typeMultiplier } from '../../game/typechart';
@@ -16,6 +16,12 @@ export function Battle() {
 
   const b = state.battle;
   const biome = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
+  // the newest line is the one you want to read, so follow the fight downwards
+  const logRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [b.log.length]);
   const team = b.team.map((u) => state.mons.find((m) => m.uid === u)).filter(Boolean);
   const lead = b.players.find((p) => p.hp > 0);
   const leadMon = lead ? state.mons.find((m) => m.uid === lead.uid) : null;
@@ -160,8 +166,8 @@ export function Battle() {
       )}
 
       <div className="grid g2">
-        <Panel title="Battle log" right={<span className="tiny dim">{fmt(state.stats.battlesWon)} wins</span>}>
-          <div className="log">
+        <Panel className="fill" title="Battle log" right={<span className="tiny dim">{fmt(state.stats.battlesWon)} wins</span>}>
+          <div className="log" ref={logRef}>
             {b.log.length === 0 ? (
               <div className="muted small">The battle log fills up once fights start.</div>
             ) : (

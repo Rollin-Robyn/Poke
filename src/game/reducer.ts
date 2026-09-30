@@ -82,6 +82,7 @@ export function createInitialState(): GameState {
     shardUpgrades: {},
     dexSeen: [],
     dexCaught: [],
+    dexShiny: [],
     formsUnlocked: [],
     galleryUnlocked: [],
     achievements: [],
@@ -162,12 +163,18 @@ export function autoAssign(s: GameState): void {
   }
 }
 
-function registerCaught(s: GameState, species: string): void {
+function registerCaught(s: GameState, species: string, shiny = false): void {
   if (!s.dexCaught.includes(species)) {
     s.dexCaught.push(species);
     log(s, `New species registered: ${entry(species).name}!`, 'good');
   }
   if (!s.dexSeen.includes(species)) s.dexSeen.push(species);
+  // a shiny catch is remembered for good: it is what opens a shiny frame
+  s.dexShiny ??= [];
+  if (shiny && !s.dexShiny.includes(species)) {
+    s.dexShiny.push(species);
+    log(s, `Shiny ${entry(species).name} registered in the gallery!`, 'good');
+  }
 }
 
 function grantItems(s: GameState, itemId: string, qty = 1): void {
@@ -233,7 +240,7 @@ function hatchEgg(
   });
   s.mons.push(mon);
   s.stats.hatched += 1;
-  registerCaught(s, species);
+  registerCaught(s, species, mon.shiny);
   log(s, `🥚 Hatched a ${mon.shiny ? '✨ shiny ' : ''}${entry(species).name}!`, 'good');
   return mon;
 }
@@ -249,7 +256,7 @@ function evolveMon(s: GameState, mon: Mon, method: string | null): boolean {
   const stats = statsAt(mon.species, mon.level, mon.nature, mon.iv);
   mon.hp = stats.hp;
   s.stats.evolved += 1;
-  registerCaught(s, target.id);
+  registerCaught(s, target.id, mon.shiny);
   log(s, `🧬 ${e.name} evolved into ${entry(target.id).name}!`, 'good');
   return true;
 }
@@ -653,7 +660,7 @@ export function tryCatch(s: GameState, ballId: string): { ok: boolean; text: str
     void ball;
     s.mons.push(mon);
     s.stats.caught += 1;
-    registerCaught(s, b.enemySpec);
+    registerCaught(s, b.enemySpec, mon.shiny);
     pushBattleLog(b, `Gotcha! ${entry(b.enemySpec).name} was caught (Lv.${b.enemyLevel}).`, 'catch');
     b.rewards.items['__caught'] = (b.rewards.items['__caught'] ?? 0) + 1;
     b.enemy = null;

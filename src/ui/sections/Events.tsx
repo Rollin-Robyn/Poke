@@ -51,7 +51,7 @@ export function Events() {
           })}
         </div>
         <div className="tiny dim" style={{ marginTop: 12 }}>
-          Event forms are unlocked permanently, survive rebirth, and can be shown off in the Pokédex gallery.
+          Event forms are unlocked permanently, survive rebirth, and can be shown off in the Gallery.
         </div>
       </Panel>
 
