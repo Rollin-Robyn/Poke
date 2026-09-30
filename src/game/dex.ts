@@ -28,8 +28,8 @@ export interface DexEntry {
   heightm: number;
   weightkg: number;
   hasFemale: boolean;
-  /** ids of the four moves this species knows (see src/data/dex.json -> moves) */
-  moves: string[];
+  /** the moves this species learns, as [moveId, level] pairs, weakest first */
+  learnset: [string, number][];
   evoTo?: { id: string; method: string }[];
   evoFrom?: string;
   tags?: string[];

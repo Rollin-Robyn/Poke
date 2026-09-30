@@ -3,7 +3,7 @@ import {
   INCUBATORS, INCUBATOR_BY_ID, ITEMS, ITEM_BY_ID, MONO_HABITATS, currentEvent, nextHabitatCost,
   slotUpgradeCost,
 } from './content';
-import { BALL_BY_ID, BALLS } from './battle';
+import { BALL_BY_ID, BALLS, tierOf } from './battle';
 import {
   cardName, playCoinFlip, playDice, playHighLow, playLuckyBoxes, playRoulette, playSlots,
   type RouletteBet,
@@ -19,7 +19,7 @@ import {
   DIAMOND_UPGRADES, DIAMOND_UPGRADE_BY_ID, UPGRADES, UPGRADE_BY_ID, countHabitatClass, diamondLevel,
   eggStorageCap, globalCoinMultiplier, habitatFreeSlots, habitatRejection, habitatSlots, incubationMultiplier,
   monOutputWithHabitat, ownedHabitat, productionPerMinute, storageCap, upgradeLevel,
-  HOURLY_CRATE_MS, DAILY_CRATE_MS, hourlyCrateCoins, dailyCrateDiamonds, MAX_TEAM,
+  HOURLY_CRATE_MS, hourlyCrateCoins, diamondExchangeCost, DIAMOND_EXCHANGE_GAIN, MAX_TEAM,
 } from './state';
 import type { GameState } from './state';
 import type { Rarity } from './dex';
@@ -64,7 +64,8 @@ export type Action =
   | { type: 'UNLOCK_FORM'; species: string; form: string; cost: number }
   | { type: 'UNLOCK_GALLERY'; species: string; kind: string; cost: number }
   | { type: 'CLAIM_EVENT'; rewardIndex: number }
-  | { type: 'CLAIM_CRATE'; kind: 'hourly' | 'daily' }
+  | { type: 'CLAIM_CRATE' }
+  | { type: 'CONVERT_COINS_TO_DIAMONDS' }
   | { type: 'CLEAR_OFFLINE' }
   | { type: 'HARD_RESET' };
 
@@ -521,10 +522,11 @@ export function reduce(state: GameState, action: Action): GameState {
       const biome = BIOME_BY_ID[action.biomeId];
       if (!biome) break;
       s.battle.biomeId = biome.id;
+      s.battle.tier = biome.tier;
       s.battle.progress = 0;
       s.battle.enemy = null;
       s.battle.enemySpec = null;
-      say(s, `Travelled to ${biome.name}.`);
+      say(s, `Travelled to ${biome.name} (${tierOf(biome).name}).`);
       break;
     }
 
@@ -738,24 +740,32 @@ export function reduce(state: GameState, action: Action): GameState {
 
     case 'CLAIM_CRATE': {
       const now = Date.now();
-      const last = s.crates[action.kind];
-      const wait = action.kind === 'hourly' ? HOURLY_CRATE_MS : DAILY_CRATE_MS;
-      if (now - last < wait) {
-        say(s, 'That crate is still refilling.', 'bad');
+      if (now - s.crates.hourly < HOURLY_CRATE_MS) {
+        say(s, 'The supply crate is still refilling.', 'bad');
         break;
       }
-      s.crates[action.kind] = now;
-      if (action.kind === 'hourly') {
-        const coins = hourlyCrateCoins(s);
-        s.coins += coins;
-        s.stats.coinsEarned += coins;
-        say(s, `📦 Supply crate opened: +${Math.round(coins)} coins.`, 'good');
-      } else {
-        const gems = dailyCrateDiamonds(s);
-        s.diamonds += gems;
-        s.eventTokens += 15;
-        say(s, `🎁 Daily delivery: +${gems} 💎 and +15 event tokens.`, 'good');
+      s.crates.hourly = now;
+      const coins = hourlyCrateCoins(s);
+      s.coins += coins;
+      s.stats.coinsEarned += coins;
+      say(s, `📦 Supply crate opened: +${Math.round(coins)} coins.`, 'good');
+      break;
+    }
+
+    case 'CONVERT_COINS_TO_DIAMONDS': {
+      // the coin exchange is the steady diamond source: no daily delivery, no
+      // free gems - the reserve has to earn them
+      const cost = diamondExchangeCost(s);
+      if (s.coins < cost) {
+        say(s, `The exchange wants ⛁${Math.round(cost).toLocaleString()} for the next diamond.`, 'bad');
+        break;
       }
+      s.coins -= cost;
+      s.diamonds += DIAMOND_EXCHANGE_GAIN;
+      s.stats.diamondsWon += DIAMOND_EXCHANGE_GAIN;
+      s.diamondExchanges += 1;
+      say(s, `💠 Exchanged ⛁${Math.round(cost).toLocaleString()} for +${DIAMOND_EXCHANGE_GAIN} 💎.`, 'good');
+      say(s, `The next diamond costs ⛁${Math.round(diamondExchangeCost(s)).toLocaleString()}.`);
       break;
     }
 

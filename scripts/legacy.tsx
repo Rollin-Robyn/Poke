@@ -184,7 +184,10 @@ try {
 }
 check('the game loop runs 10 minutes without throwing', tickError === null, (tickError ?? '').slice(0, 600));
 check('the battle keeps fighting with a stale team uid', s.battle.team.length === 2, JSON.stringify(s.battle.team));
-check('battle players get a cooldown field', s.battle.players.every((p) => typeof p.cooldown === 'number'));
+// cooldowns belonged to the real-time battle system that is gone
+check('battle players carry hit points only', s.battle.players.every((p) => typeof p.hp === 'number' && !('cooldown' in p)));
+check('the battle picks up the tier of its area', s.battle.tier >= 1 && s.battle.tier <= 4, String(s.battle.tier));
+check('the daily crate is dropped on migration', !('daily' in s.crates), JSON.stringify(Object.keys(s.crates)));
 // auto-battle and auto-catch were removed; an old save must not drag them back
 check('the retired auto-battle flag is dropped', !('auto' in s.battle), JSON.stringify(Object.keys(s.battle)));
 check('the retired auto-catch option is dropped', !('autoCatch' in s.options), JSON.stringify(Object.keys(s.options)));

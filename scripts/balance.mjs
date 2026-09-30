@@ -47,9 +47,10 @@ const fmt = (n) => {
 };
 
 /**
- * Battles are played by hand: nothing attacks or throws a ball on its own.
- * This stands in for a player sitting on the Battle screen - one move every
- * couple of seconds, and a ball once the wild monster is nearly down.
+ * Battles are turn based and played by hand: nothing moves until the player
+ * picks a move, and then both sides act once. This stands in for a player
+ * sitting on the Battle screen clicking a move about once a second, and
+ * throwing a ball once the wild monster is nearly down.
  *
  * It calls `useMove`/`tryCatch` straight from the game logic (which is exactly
  * what the UI's two battle actions do) so the playthrough does not pay for a
@@ -61,17 +62,18 @@ function playBattle(s) {
   const lead = b.players.find((p) => p.hp > 0);
   const mon = lead && s.mons.find((m) => m.uid === lead.uid);
   if (!mon) return;
-  if (lead.cooldown <= 0) {
-    const ready = g.movesFor(mon.species).filter((m) => (lead.moveCooldowns[m.id] ?? 0) <= 0);
-    if (ready.length) {
-      const best = ready.reduce((a, m) => (m.power > a.power ? m : a), ready[0]);
-      g.useMove(s, mon.uid, best.id);
+  // a weakened monster is worth a ball before it is worth another hit
+  if (b.enemy.hp / b.enemy.maxHp < 0.3) {
+    const ball = ['ultra-ball', 'great-ball', 'poke-ball'].find((id) => (s.balls[id] ?? 0) > 0);
+    if (ball) {
+      g.tryCatch(s, ball);
+      return;
     }
   }
-  // a weakened monster is worth a ball; catch it while it is still standing
-  if (b.enemy && b.enemy.hp / b.enemy.maxHp < 0.3) {
-    const ball = ['ultra-ball', 'great-ball', 'poke-ball'].find((id) => (s.balls[id] ?? 0) > 0);
-    if (ball) g.tryCatch(s, ball);
+  const moves = g.movesFor(mon.species, mon.level);
+  if (moves.length) {
+    const best = moves.reduce((a, m) => (m.power > a.power ? m : a), moves[0]);
+    g.useMove(s, mon.uid, best.id);
   }
 }
 
@@ -209,8 +211,9 @@ function greedy(s, t) {
 
   // pick up the wall-clock crates whenever they land
   if (t % 60 === 0) {
-    reduce(s, { type: 'CLAIM_CRATE', kind: 'hourly' });
-    reduce(s, { type: 'CLAIM_CRATE', kind: 'daily' });
+    reduce(s, { type: 'CLAIM_CRATE' });
+    // the greedy buyer also trades spare coins for diamonds at the exchange
+    while (s.coins > g.diamondExchangeCost(s) * 6) reduce(s, { type: 'CONVERT_COINS_TO_DIAMONDS' });
   }
 
   // diamonds: first the permanent upgrades, then the diamond-only egg tiers

@@ -171,6 +171,8 @@ export const ITEMS: ItemDef[] = [
   { id: 'macho-brace', name: 'Macho Brace', kind: 'held', sprite: 'macho-brace', blurb: 'Held: +18% output, monster tires 25% faster.', work: 0.18, value: 4200, weight: 12 },
   { id: 'power-anklet', name: 'Power Anklet', kind: 'held', sprite: 'power-anklet', blurb: 'Held: +22% output, monster tires 40% faster.', work: 0.22, value: 6800, weight: 8 },
   { id: 'exp-share', name: 'Exp. Share', kind: 'held', sprite: 'exp-share', blurb: 'Held: this monster also trains the rest of the party.', value: 2600, weight: 18 },
+  { id: 'choice-scarf', name: 'Choice Scarf', kind: 'held', sprite: 'choice-scarf', blurb: 'Held: +50% speed in battle — it acts before monsters it has no right to beat.', battle: 0.1, value: 5200, weight: 8 },
+  { id: 'quick-claw', name: 'Quick Claw', kind: 'held', sprite: 'quick-claw', blurb: 'Held: one time in five it strikes first, whatever the speed says.', battle: 0.1, value: 4800, weight: 8 },
   // Evolution stones
   { id: 'fire-stone', name: 'Fire Stone', kind: 'stone', sprite: 'fire-stone', blurb: 'Evolves certain Fire-type monsters.', value: 4000, weight: 14, types: ['Fire'] },
   { id: 'water-stone', name: 'Water Stone', kind: 'stone', sprite: 'water-stone', blurb: 'Evolves certain Water-type monsters.', value: 4000, weight: 14, types: ['Water'] },
@@ -271,28 +273,91 @@ export const INCUBATOR_BY_ID: Record<string, IncubatorDef> = Object.fromEntries(
 /**
  * ---------------------------------------------------------------------------
  *  BATTLE BIOMES
+ *
+ * Areas are grouped into four tiers. A tier sets the level range, how rare the
+ * monsters that live there are, and how hard it is to reach; inside a tier
+ * there are several areas, and the trail picks one of them at random, so the
+ * same rarity keeps looking different. Clearing encounters is what pushes the
+ * level range up and opens the chance of wandering into a rarer tier.
  * ---------------------------------------------------------------------------
  */
+export type BiomeTier = 1 | 2 | 3 | 4;
+
+export interface BiomeTierDef {
+  tier: BiomeTier;
+  name: string;
+  /** the level band wild monsters fall in before the encounter bonus */
+  levelRange: [number, number];
+  /** spawn weights per rarity - rarer tiers are where the good monsters live */
+  rarity: Record<Rarity, number>;
+  /** encounters that must be cleared before this tier can turn up at all */
+  unlockCleared: number;
+  /** relative pull once it is unlocked; grows with encounters cleared */
+  weight: (cleared: number) => number;
+  /** highest monster level needed before it shows up in the travel list */
+  unlockLevel: number;
+  accent: string;
+}
+
+export const BIOME_TIERS: BiomeTierDef[] = [
+  {
+    tier: 1, name: 'Quiet country', levelRange: [2, 8], unlockCleared: 0, unlockLevel: 1,
+    accent: '#6fbf73',
+    rarity: { common: 100, uncommon: 42, rare: 6, epic: 0.4, legendary: 0 },
+    weight: () => 1,
+  },
+  {
+    tier: 2, name: 'Wild borderlands', levelRange: [9, 20], unlockCleared: 8, unlockLevel: 10,
+    accent: '#4d90d0',
+    rarity: { common: 55, uncommon: 90, rare: 30, epic: 3, legendary: 0 },
+    weight: (cleared) => cleared / 25,
+  },
+  {
+    tier: 3, name: 'Deep wilds', levelRange: [21, 38], unlockCleared: 30, unlockLevel: 22,
+    accent: '#e0653a',
+    rarity: { common: 20, uncommon: 55, rare: 80, epic: 22, legendary: 1.5 },
+    weight: (cleared) => cleared / 90,
+  },
+  {
+    tier: 4, name: 'Legendary ground', levelRange: [39, 65], unlockCleared: 80, unlockLevel: 36,
+    accent: '#5b4a6b',
+    rarity: { common: 6, uncommon: 22, rare: 60, epic: 70, legendary: 12 },
+    weight: (cleared) => cleared / 260,
+  },
+];
+
+export const BIOME_TIER_BY_ID: Record<number, BiomeTierDef> =
+  Object.fromEntries(BIOME_TIERS.map((t) => [t.tier, t]));
+export const MAX_BIOME_TIER = BIOME_TIERS.length;
+
 export interface BiomeDef {
   id: string;
   name: string;
-  unlockLevel: number;
-  levelRange: [number, number];
-  /** [speciesId, weight] - picked by type, filtered against the dex pool */
+  /** which tier of area this is - see BIOME_TIERS */
+  tier: BiomeTier;
+  /** types that live here; the species pool is filtered against them */
   types: string[];
   blurb: string;
   accent: string;
 }
 
 export const BIOMES: BiomeDef[] = [
-  { id: 'meadow', name: 'Sunny Meadow', unlockLevel: 1, levelRange: [2, 5], types: ['Normal', 'Grass', 'Bug'], blurb: 'Gentle introduction.', accent: '#6fbf73' },
-  { id: 'cave', name: 'Damp Cave', unlockLevel: 8, levelRange: [6, 12], types: ['Rock', 'Ground', 'Poison'], blurb: 'Dark, humid, full of stones.', accent: '#a08a60' },
-  { id: 'forest', name: 'Deep Forest', unlockLevel: 15, levelRange: [11, 19], types: ['Bug', 'Grass', 'Dark'], blurb: 'The canopy swallows the light.', accent: '#4f9d5b' },
-  { id: 'shore', name: 'Rugged Shore', unlockLevel: 22, levelRange: [17, 26], types: ['Water', 'Ice', 'Flying'], blurb: 'Salt spray and stubborn monsters.', accent: '#4d90d0' },
-  { id: 'ruins', name: 'Forgotten Ruins', unlockLevel: 30, levelRange: [24, 34], types: ['Psychic', 'Ghost', 'Fairy'], blurb: 'Something is still thinking in there.', accent: '#a883ec' },
-  { id: 'caldera', name: 'Ash Caldera', unlockLevel: 38, levelRange: [32, 44], types: ['Fire', 'Dragon', 'Steel'], blurb: 'The air itself is hot enough to fight.', accent: '#e0653a' },
-  { id: 'summit', name: 'Frost Summit', unlockLevel: 48, levelRange: [42, 56], types: ['Ice', 'Dragon', 'Fighting'], blurb: 'Only the strong get up here.', accent: '#8fd4e8' },
-  { id: 'void', name: 'Hollow Void', unlockLevel: 58, levelRange: [52, 70], types: ['Ghost', 'Dark', 'Psychic'], blurb: 'The end of the map. Legends live here.', accent: '#5b4a6b' },
+  // tier 1 - gentle, everywhere, mostly common monsters
+  { id: 'meadow', name: 'Sunny Meadow', tier: 1, types: ['Normal', 'Grass', 'Bug'], blurb: 'Gentle introduction.', accent: '#6fbf73' },
+  { id: 'cave', name: 'Damp Cave', tier: 1, types: ['Rock', 'Ground', 'Poison'], blurb: 'Dark, humid, full of stones.', accent: '#a08a60' },
+  { id: 'forest', name: 'Deep Forest', tier: 1, types: ['Bug', 'Grass', 'Dark'], blurb: 'The canopy swallows the light.', accent: '#4f9d5b' },
+  // tier 2 - the borderlands
+  { id: 'shore', name: 'Rugged Shore', tier: 2, types: ['Water', 'Ice', 'Flying'], blurb: 'Salt spray and stubborn monsters.', accent: '#4d90d0' },
+  { id: 'ruins', name: 'Forgotten Ruins', tier: 2, types: ['Psychic', 'Ghost', 'Fairy'], blurb: 'Something is still thinking in there.', accent: '#a883ec' },
+  { id: 'canyon', name: 'Dusty Canyon', tier: 2, types: ['Ground', 'Rock', 'Fighting'], blurb: 'Red rock, hot wind, nowhere to hide.', accent: '#c98b5e' },
+  // tier 3 - the deep wilds
+  { id: 'caldera', name: 'Ash Caldera', tier: 3, types: ['Fire', 'Dragon', 'Steel'], blurb: 'The air itself is hot enough to fight.', accent: '#e0653a' },
+  { id: 'summit', name: 'Frost Summit', tier: 3, types: ['Ice', 'Dragon', 'Fighting'], blurb: 'Only the strong get up here.', accent: '#8fd4e8' },
+  { id: 'plateau', name: 'Storm Plateau', tier: 3, types: ['Electric', 'Steel', 'Flying'], blurb: 'Every hair on your arm stands up.', accent: '#c9b037' },
+  // tier 4 - legendary ground
+  { id: 'void', name: 'Hollow Void', tier: 4, types: ['Ghost', 'Dark', 'Psychic'], blurb: 'The end of the map. Legends live here.', accent: '#5b4a6b' },
+  { id: 'abyss', name: 'Abyssal Trench', tier: 4, types: ['Water', 'Dark', 'Dragon'], blurb: 'Down here the pressure has opinions.', accent: '#2f7f8f' },
+  { id: 'spire', name: 'Sky Spire', tier: 4, types: ['Fairy', 'Dragon', 'Flying'], blurb: 'A staircase of cloud and old bone.', accent: '#d78ad0' },
 ];
 
 export const BIOME_BY_ID: Record<string, BiomeDef> = Object.fromEntries(BIOMES.map((b) => [b.id, b]));

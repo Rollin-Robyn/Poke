@@ -19,19 +19,26 @@ export function Habitats() {
   const assignHab = assignTo ? state.habitats.find((h) => h.id === assignTo) : null;
   const assignDef = assignHab ? HABITAT_BY_ID[assignHab.defId] : null;
   const free = assignHab ? habitatFreeSlots(state, assignHab) : 0;
+  const stored = state.mons.filter((m) => !m.habitatId);
   // monsters that match the type but are too rare for the current capacity
   const blockedByRarity = assignDef
-    ? state.mons.filter(
+    ? stored.filter(
         (m) =>
-          !m.habitatId &&
           !state.battle.team.includes(m.uid) &&
           DEX[m.species].types.some((t) => assignDef.types.includes(t)) &&
           !canEnterHabitat(m, assignHab!, assignDef),
       ).length
     : 0;
   const eligible = assignDef
-    ? state.mons.filter(
-        (m) => !m.habitatId && !state.battle.team.includes(m.uid) && canEnterHabitat(m, assignHab!, assignDef),
+    ? stored.filter((m) => !state.battle.team.includes(m.uid) && canEnterHabitat(m, assignHab!, assignDef))
+    : [];
+  // why the rest cannot move in - this is the part that used to be invisible
+  const inTeam = stored.filter((m) => state.battle.team.includes(m.uid));
+  const wrongType = assignDef
+    ? stored.filter(
+        (m) =>
+          !state.battle.team.includes(m.uid) &&
+          !DEX[m.species].types.some((t) => assignDef.types.includes(t)),
       )
     : [];
 
@@ -63,6 +70,7 @@ export function Habitats() {
           <span>{state.habitats.length} habitats built ({monoOwned} monotype, {multiOwned} multitype)</span>
           <span>Every habitat holds <b>1 monster</b>, +1 per capacity upgrade you buy on that habitat</span>
           <span>Monsters only move into habitats that accept their type</span>
+          <span>Monsters on the battle team are out training, so they cannot be housed</span>
         </div>
       </Panel>
 
@@ -79,6 +87,9 @@ export function Habitats() {
           const mons = monsInHabitat(state, h.id);
           const perHour = habitatProduction(state, h.id) * 60;
           const slots = habitatSlots(h);
+          // free slots for *this* habitat - the button used to read the modal's
+          // count, which is 0 until a habitat is selected, so it never opened
+          const room = habitatFreeSlots(state, h);
           const nextCost = slotUpgradeCost(def, h.slotLevel);
           const asleep = mons.filter((m) => m.energy <= 0).length;
           const isMulti = def.cls === 'multi';
@@ -139,16 +150,17 @@ export function Habitats() {
                   {Array.from({ length: Math.max(0, Math.min(slots, 24) - mons.length) }).map((_, i) => (
                     <div
                       key={`e${i}`}
-                      className={`slot ${free > 0 ? 'empty' : ''}`}
-                      style={{ cursor: free > 0 ? 'pointer' : 'default' }}
-                      onClick={() => free > 0 && setAssignTo(h.id)}
+                      className={`slot ${room > 0 ? 'empty' : ''}`}
+                      style={{ cursor: room > 0 ? 'pointer' : 'default' }}
+                      title={room > 0 ? 'Click to move a monster in' : 'This habitat is full — upgrade its capacity'}
+                      onClick={() => room > 0 && setAssignTo(h.id)}
                     />
                   ))}
                 </div>
 
                 <div className="row between">
-                  <button className="btn sm primary" disabled={free <= 0} onClick={() => setAssignTo(h.id)}>
-                    + Add monster
+                  <button className="btn sm primary" disabled={room <= 0} onClick={() => setAssignTo(h.id)}>
+                    + Add monster ({room} free)
                   </button>
                   <button
                     className="btn sm"
@@ -235,11 +247,43 @@ export function Habitats() {
             {blockedByRarity > 0 ? ` — ${blockedByRarity} monster(s) in storage are too rare for it` : ''}.
           </div>
           {eligible.length === 0 ? (
-            <div className="muted">
-              No eligible monsters in storage.{' '}
-              {blockedByRarity > 0
-                ? 'Everything that matches the type is too rare — upgrade this habitat\'s capacity to accept them.'
-                : 'Hatch, catch or breed a monster with a matching type.'}
+            <div className="stack" style={{ gap: 8 }}>
+              <div className="muted">No eligible monsters in storage.</div>
+              {blockedByRarity > 0 && (
+                <div className="small">
+                  <b style={{ color: 'var(--gold)' }}>{blockedByRarity} match the type but are too rare.</b>{' '}
+                  Upgrade this habitat's capacity — each upgrade adds a slot and raises the rarity it accepts.
+                </div>
+              )}
+              {inTeam.length > 0 && (
+                <div className="stack" style={{ gap: 6 }}>
+                  <div className="small">
+                    <b style={{ color: 'var(--gold)' }}>{inTeam.length} are in your battle team.</b>{' '}
+                    A monster on the battle team is out training, so it cannot be housed. Take one off the team
+                    and it becomes available straight away.
+                  </div>
+                  <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    {inTeam.slice(0, 12).map((m) => (
+                      <button
+                        key={m.uid}
+                        className="btn xs"
+                        title={`Take ${entry(m.species).name} off the battle team`}
+                        onClick={() => dispatch({ type: 'TOGGLE_TEAM_MEMBER', uid: m.uid })}
+                      >
+                        ⚔️ {entry(m.species).name} Lv.{m.level} · take off team
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {wrongType.length > 0 && (
+                <div className="small dim">
+                  {wrongType.length} more in storage are the wrong type for this habitat.
+                </div>
+              )}
+              {!blockedByRarity && !inTeam.length && (
+                <div className="small dim">Hatch, catch or breed a monster with a matching type.</div>
+              )}
             </div>
           ) : (
             <div className="grid g4">

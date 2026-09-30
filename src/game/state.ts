@@ -75,10 +75,6 @@ export interface BattleMon {
   uid: string;
   hp: number;
   maxHp: number;
-  /** seconds until this monster may act again */
-  cooldown: number;
-  /** per-move cooldowns, keyed by move id */
-  moveCooldowns: Record<string, number>;
 }
 
 export interface BattleLogEntry {
@@ -90,20 +86,23 @@ export interface BattleLogEntry {
 export interface BattleState {
   team: string[];
   biomeId: string;
+  /** tier of the area the expedition is in (see BIOME_TIERS) */
+  tier: number;
   enemyId: string | null;
   enemy: BattleMon | null;
   enemySpec: string | null;
   enemyLevel: number;
   enemyShiny: boolean;
   players: BattleMon[];
-  enemyCooldowns: Record<string, number>;
-  /** seconds elapsed in the current encounter */
+  /** turns taken in the current encounter */
   turn: number;
   log: BattleLogEntry[];
   logId: number;
-  /** encounters cleared since entering the biome */
+  /** encounters cleared since the area last changed */
   progress: number;
-  /** encounters until the biome rotates */
+  /** encounters cleared on this expedition - drives level range and tier rolls */
+  cleared: number;
+  /** encounters until the trail moves on */
   rotateAt: number;
   /** seconds until the next wild encounter (or until the party has rested) */
   timer: number;
@@ -163,8 +162,10 @@ export interface GameState {
   /** event rewards already claimed */
   eventClaimed: string[];
   /** last casino round, for the UI */
-  /** unix ms of the last pickup for each crate */
-  crates: { hourly: number; daily: number };
+  /** unix ms of the last supply crate pickup */
+  crates: { hourly: number };
+  /** how many times coins have been exchanged for diamonds - the price climbs */
+  diamondExchanges: number;
   casinoResult: null | {
     game: string; bet: number; payout: number; label: string; detail: string; jackpot?: boolean;
     currency: 'coins' | 'diamonds';
@@ -277,13 +278,21 @@ export function hourlyCrateCoins(s: GameState): number {
   return Math.max(400, Math.floor(productionPerMinute(s) * 20));
 }
 
-/** Diamonds in the daily crate. Deeper progress pays more gems. */
-export function dailyCrateDiamonds(s: GameState): number {
-  return 8 + s.rebirths * 5 + Math.floor(s.dexCaught.length / 30) + Math.floor(s.habitats.length / 2);
-}
-
+/** Coins in the hourly crate. */
 export const HOURLY_CRATE_MS = 60 * 60 * 1000;
-export const DAILY_CRATE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The coin exchange: the only steady way to turn the reserve's coins into
+ * diamonds. Every exchange costs more than the one before it, so a fat bank
+ * buys a handful of gems rather than the whole shop.
+ */
+export const DIAMOND_EXCHANGE_BASE = 25_000;
+export const DIAMOND_EXCHANGE_GROWTH = 1.45;
+export const DIAMOND_EXCHANGE_GAIN = 1;
+
+export function diamondExchangeCost(s: GameState): number {
+  return Math.ceil(DIAMOND_EXCHANGE_BASE * Math.pow(DIAMOND_EXCHANGE_GROWTH, s.diamondExchanges));
+}
 
 export function happinessRate(s: GameState): number {
   return 1 + upgradeLevel(s, 'happiness') * 0.15;

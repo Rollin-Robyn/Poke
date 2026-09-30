@@ -51,35 +51,94 @@ for (const list of Object.values(MOVES_BY_TYPE)) {
   list.sort((a, b) => MOVES[a].power - MOVES[b].power || MOVES[a].name.localeCompare(MOVES[b].name));
 }
 
-/** Universal fallback moves every monster can use. */
-const UNIVERSAL = ['tackle', 'headbutt', 'bodyslam', 'doubleedge', 'swift']
-  .filter((id) => MOVES[id]);
+/** Moves nearly every monster can learn, whatever its type (Normal, mostly). */
+const UNIVERSAL = [
+  'tackle', 'scratch', 'quickattack', 'bind', 'cut', 'headbutt', 'facade', 'swift',
+  'bodyslam', 'takedown', 'doubleedge', 'strength', 'slash', 'hypervoice',
+].filter((id) => MOVES[id]);
+
+const ALL_TYPES = Object.keys(MOVES_BY_TYPE);
+
+/** Deterministic string hash, so `npm run data` is reproducible. */
+function hashSeed(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** mulberry32 - small, fast, seedable. */
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 /**
- * Give a species four moves: a weak, a mid, a strong opener and a finisher,
- * drawn from its own types (plus universal Normal moves as filler).
- * Deterministic on purpose so `npm run data` is reproducible.
+ * Learnsets - the moves a species knows, and the level it learns each at.
+ *
+ * Every monster starts with one or two weak moves and picks the rest up as it
+ * levels, keeping only the four it learned most recently (exactly like the
+ * games: old moves are forgotten). Which moves land in the set is random but
+ * seeded from the species id, so a species always gets the same learnset and
+ * `npm run data` stays reproducible. No move appears twice.
+ *
+ * Moves are drawn from the species' own types first, then from the universal
+ * Normal pool, with an occasional off-type move for coverage. Weaker moves are
+ * learned at lower levels than stronger ones.
  */
-function movesFor(types) {
-  const own = types.flatMap((t) => MOVES_BY_TYPE[t] ?? []);
-  const pool = [...new Set([...own, ...UNIVERSAL])];
-  const byPower = (lo, hi) => pool.filter((id) => MOVES[id].power >= lo && MOVES[id].power <= hi);
+function learnsetFor(id, types) {
+  const rand = makeRng(hashSeed(id));
+  const own = [...new Set(types.flatMap((t) => MOVES_BY_TYPE[t] ?? []))];
+  const total = 8 + Math.floor(rand() * 5); // 8-12 moves over a lifetime
   const chosen = [];
-  const take = (id) => {
-    if (id && !chosen.includes(id)) chosen.push(id);
+  const take = (moveId) => {
+    if (moveId && MOVES[moveId] && !chosen.includes(moveId)) chosen.push(moveId);
   };
-  // prefer moves of the monster's own type within each power band
-  const preferOwn = (band) => band.find((id) => types.includes(MOVES[id].type)) ?? band[0];
-  take(preferOwn(byPower(0, 45)));
-  take(preferOwn(byPower(46, 75)));
-  take(preferOwn(byPower(76, 110)));
-  take(preferOwn(byPower(111, 999)) ?? preferOwn(byPower(76, 110)));
-  // top up if the type pool was thin
-  for (const id of pool) {
-    if (chosen.length >= 4) break;
-    take(id);
+  const lowest = (list) => list.slice().sort((a, b) => MOVES[a].power - MOVES[b].power)[0];
+
+  // level 1: one weak move of its own type and one weak move anyone can learn
+  take(lowest(own) ?? UNIVERSAL[0]);
+  take(UNIVERSAL[Math.floor(rand() * 4)] ?? UNIVERSAL[0]);
+
+  let guard = 0;
+  while (chosen.length < total && guard++ < 400) {
+    const roll = rand();
+    if (roll < 0.6 && own.length) take(own[Math.floor(rand() * own.length)]);
+    else if (roll < 0.88) take(UNIVERSAL[Math.floor(rand() * UNIVERSAL.length)]);
+    else {
+      const other = MOVES_BY_TYPE[ALL_TYPES[Math.floor(rand() * ALL_TYPES.length)]];
+      take(other[Math.floor(rand() * other.length)]);
+    }
   }
-  return chosen;
+  // pad with anything that is left if the type pool was thin
+  for (const moveId of [...own, ...UNIVERSAL]) {
+    if (chosen.length >= total) break;
+    take(moveId);
+  }
+
+  // weak moves first: that is the order they are learned in
+  chosen.sort((a, b) => MOVES[a].power - MOVES[b].power || a.localeCompare(b));
+
+  const n = chosen.length;
+  let last = 1;
+  const levels = chosen.map((_, i) => {
+    if (i === 0) return 1;
+    const base = Math.round(1 + (i / Math.max(1, n - 1)) * 58);
+    const level = Math.max(last, Math.min(70, base + (Math.floor(rand() * 5) - 2)));
+    last = level;
+    return level;
+  });
+  // every monster knows two moves from the moment it hatches
+  if (n > 1) levels[1] = 1;
+
+  return chosen.map((moveId, i) => [moveId, levels[i]]);
 }
 
 const LEGEND_TAGS = new Set(['Restricted Legendary', 'Sub-Legendary', 'Mythical', 'Legendary']);
@@ -164,7 +223,7 @@ for (const e of entries) {
   const id = e.name.toLowerCase().replace(/[^a-z0-9]/g, '');
 
   dex[id] = {
-    moves: movesFor(e.types),
+    learnset: learnsetFor(id, e.types),
     num: e.num,
     name: e.name,
     types: e.types,
@@ -225,6 +284,17 @@ console.log(`dex entries: ${Object.keys(dex).length}`);
 console.log(`form sprites: ${FORMS.length}`);
 console.log(`item sprites: ${items.length}`);
 console.log(`moves: ${Object.keys(MOVES).length} damaging moves across ${Object.keys(MOVES_BY_TYPE).length} types`);
+{
+  const sizes = Object.values(dex).map((d) => d.learnset.length);
+  const at = (lv) => {
+    const counts = Object.values(dex).map((d) => d.learnset.filter((m) => m[1] <= lv).length);
+    return (counts.reduce((a, b) => a + b, 0) / counts.length).toFixed(1);
+  };
+  console.log(
+    `learnsets: ${Math.min(...sizes)}-${Math.max(...sizes)} moves per species ` +
+      `(known at Lv.1: ${at(1)}, Lv.20: ${at(20)}, Lv.50: ${at(50)}, Lv.100: ${at(100)})`,
+  );
+}
 console.log('rarity spread:', rarities);
 const byStage = entries.reduce((acc, e) => {
   const d = evolutionDepth(e);

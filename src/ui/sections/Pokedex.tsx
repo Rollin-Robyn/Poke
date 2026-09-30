@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useGame } from '../store';
 import { Modal, Panel, RarityTag, Sprite, TypeTag } from '../components';
-import { DEX, DEX_IDS, RARITIES, entry, fmt, spriteUrl, statsAt } from './shared';
+import { DEX, DEX_IDS, RARITIES, entry, fmt, learnsetOf, spriteUrl, statsAt } from './shared';
 import { NATURES } from '../../game/natures';
 
 type Filter = 'all' | 'caught' | 'seen' | 'missing' | 'shiny';
@@ -139,6 +139,25 @@ export function Pokedex() {
                   {e.tags?.length ? (
                     <div className="row between"><span className="muted">Tags</span><span>{e.tags.join(', ')}</span></div>
                   ) : null}
+                </div>
+              </Panel>
+
+              <Panel title="Moves by level">
+                <div className="small muted" style={{ marginBottom: 8 }}>
+                  A monster knows the four moves it learned most recently — older ones are forgotten.
+                </div>
+                <div className="stack small">
+                  {learnsetOf(open!).map(({ move, level }) => (
+                    <div key={move.id} className="row between">
+                      <span className="row" style={{ gap: 8 }}>
+                        <TypeTag type={move.type} />
+                        {move.name}
+                      </span>
+                      <span className="dim mono">
+                        Lv.{level} · {move.power} power
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </Panel>
 
