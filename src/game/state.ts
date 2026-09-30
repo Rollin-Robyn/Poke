@@ -5,6 +5,9 @@ import { clamp } from './rng';
 
 export type Gender = 'M' | 'F' | 'N';
 
+/** A battle team is six monsters, like the games this borrows from. */
+export const MAX_TEAM = 6;
+
 export interface Mon {
   uid: string;
   species: string;
@@ -94,15 +97,15 @@ export interface BattleState {
   enemyShiny: boolean;
   players: BattleMon[];
   enemyCooldowns: Record<string, number>;
-  /** turns elapsed in the current encounter */
+  /** seconds elapsed in the current encounter */
   turn: number;
   log: BattleLogEntry[];
   logId: number;
-  auto: boolean;
   /** encounters cleared since entering the biome */
   progress: number;
   /** encounters until the biome rotates */
   rotateAt: number;
+  /** seconds until the next wild encounter (or until the party has rested) */
   timer: number;
   rewards: { coins: number; xp: number; items: Record<string, number> };
 }
@@ -177,7 +180,6 @@ export interface GameState {
 
   options: {
     sort: 'recent' | 'level' | 'output' | 'rarity' | 'dex';
-    autoCatch: boolean;
     autoAssign: boolean;
     showBackSprites: boolean;
   };

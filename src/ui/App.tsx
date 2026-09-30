@@ -198,7 +198,7 @@ function StarterPicker({ onPick, onSettings }: { onPick: (species: string) => vo
       </div>
       <div className="row between" style={{ marginTop: 14, gap: 10 }}>
         <span className="tiny dim">
-          Tip: keys 1–9 switch tabs, auto-battle runs from the start, and the game saves itself every 15 seconds.
+          Tip: keys 1–9 switch tabs, battles are played by hand, and the game saves itself every 15 seconds.
         </span>
         <button className="btn xs ghost" onClick={onSettings} title="Restore or reset the save in this browser">
           ⚙️ Old save giving you trouble? Reset it

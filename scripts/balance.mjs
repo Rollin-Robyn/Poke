@@ -46,6 +46,35 @@ const fmt = (n) => {
   return `${v.toFixed(2)}${u[i]}`;
 };
 
+/**
+ * Battles are played by hand: nothing attacks or throws a ball on its own.
+ * This stands in for a player sitting on the Battle screen - one move every
+ * couple of seconds, and a ball once the wild monster is nearly down.
+ *
+ * It calls `useMove`/`tryCatch` straight from the game logic (which is exactly
+ * what the UI's two battle actions do) so the playthrough does not pay for a
+ * state copy on every click.
+ */
+function playBattle(s) {
+  const b = s.battle;
+  if (!b.enemy || !b.enemySpec) return;
+  const lead = b.players.find((p) => p.hp > 0);
+  const mon = lead && s.mons.find((m) => m.uid === lead.uid);
+  if (!mon) return;
+  if (lead.cooldown <= 0) {
+    const ready = g.movesFor(mon.species).filter((m) => (lead.moveCooldowns[m.id] ?? 0) <= 0);
+    if (ready.length) {
+      const best = ready.reduce((a, m) => (m.power > a.power ? m : a), ready[0]);
+      g.useMove(s, mon.uid, best.id);
+    }
+  }
+  // a weakened monster is worth a ball; catch it while it is still standing
+  if (b.enemy && b.enemy.hp / b.enemy.maxHp < 0.3) {
+    const ball = ['ultra-ball', 'great-ball', 'poke-ball'].find((id) => (s.balls[id] ?? 0) > 0);
+    if (ball) g.tryCatch(s, ball);
+  }
+}
+
 function playthrough(label, strategy) {
   const s = createInitialState();
   reduce(s, { type: 'CHOOSE_STARTER', species: 'charmander' });
@@ -91,11 +120,14 @@ function playthrough(label, strategy) {
   return s;
 }
 
-// --- strategy A: pure idle, no purchases at all
-playthrough('pure idle (no purchases)', () => {});
+// --- strategy A: pure idle, no purchases and no clicking
+playthrough('pure idle (no purchases, no battles)', () => {});
 
 // --- strategy B: greedy buyer, roughly how a real player behaves
 function greedy(s, t) {
+  // a hands-on player: fight while the reserve runs itself
+  playBattle(s);
+
   const buyUpgrade = (id) => {
     const def = g.UPGRADE_BY_ID[id];
     const lvl = s.upgrades[id] ?? 0;

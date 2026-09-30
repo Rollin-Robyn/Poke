@@ -60,18 +60,6 @@ export function Settings() {
 
           <label className="row between" style={{ gap: 12, cursor: 'pointer' }}>
             <span>
-              <b>Auto-catch weakened monsters</b>
-              <div className="tiny dim">Throw a ball automatically once a wild monster is under 25% HP.</div>
-            </span>
-            <input
-              type="checkbox"
-              checked={state.options.autoCatch}
-              onChange={(e) => dispatch({ type: 'SET_OPTION', key: 'autoCatch', value: e.target.checked })}
-            />
-          </label>
-
-          <label className="row between" style={{ gap: 12, cursor: 'pointer' }}>
-            <span>
               <b>Show back sprites</b>
               <div className="tiny dim">Use the back-view artwork in the Pokédex gallery.</div>
             </span>

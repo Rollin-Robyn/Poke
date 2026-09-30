@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { useGame } from '../store';
 import { Bar, ItemSprite, Modal, Panel, Sprite, TypeTag } from '../components';
 import { TYPE_COLORS, typeMultiplier } from '../../game/typechart';
+import { MAX_TEAM } from '../../game/state';
 import {
   BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, DEX, ballContextFor, entry, fmt, movesFor, statsAt,
 } from './shared';
-
-const MAX_TEAM = 6;
 
 export function Battle() {
   const { state, dispatch } = useGame();
@@ -20,6 +19,7 @@ export function Battle() {
   const lead = b.players.find((p) => p.hp > 0);
   const leadMon = lead ? state.mons.find((m) => m.uid === lead.uid) : null;
 
+  const teamFull = b.team.length >= MAX_TEAM;
   const enemyRarity = b.enemySpec ? entry(b.enemySpec).rarity : 'common';
   const caught = b.enemySpec ? state.dexCaught.includes(b.enemySpec) : false;
   const enemyTypes = b.enemySpec ? entry(b.enemySpec).types : [];
@@ -34,15 +34,12 @@ export function Battle() {
             🧭 {biome.name}
           </span>
           <span className="small muted">
-            {b.progress}/{b.rotateAt} encounters until the area changes · turn {Math.floor(b.turn)} of this fight
+            {b.progress}/{b.rotateAt} encounters until the area changes · {Math.floor(b.turn)}s into this fight
           </span>
         </div>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn sm" onClick={() => setPickBiome(true)}>Biome</button>
           <button className="btn sm" onClick={() => setPickTeam(true)}>Team ({b.team.length}/{MAX_TEAM})</button>
-          <button className={`btn sm ${b.auto ? 'good' : ''}`} onClick={() => dispatch({ type: 'TOGGLE_BATTLE_AUTO' })}>
-            {b.auto ? '⏸ Auto-battle on' : '▶ Auto-battle off'}
-          </button>
           <button className="btn sm" onClick={() => dispatch({ type: 'HEAL_TEAM' })}>Heal</button>
         </div>
       </div>
@@ -100,7 +97,7 @@ export function Battle() {
       </Panel>
 
       {b.enemySpec && leadMon && (
-        <Panel title={`${entry(leadMon.species).name}'s moves`} right={<span className="tiny dim">click a move to use it now · auto-battle picks the best one</span>}>
+        <Panel title={`${entry(leadMon.species).name}'s moves`} right={<span className="tiny dim">click a move to use it now · each move recharges on its own timer</span>}>
           <div className="grid g4">
             {leadMoves.map((m) => {
               const cd = cooldowns[m.id] ?? 0;
@@ -226,15 +223,11 @@ export function Battle() {
             </div>
           </Panel>
 
-          <Panel title="Fight settings">
-            <label className="row between small" style={{ cursor: 'pointer' }}>
-              <span>Auto-catch weakened monsters</span>
-              <input
-                type="checkbox"
-                checked={state.options.autoCatch}
-                onChange={(e) => dispatch({ type: 'SET_OPTION', key: 'autoCatch', value: e.target.checked })}
-              />
-            </label>
+          <Panel title="Fight rules">
+            <div className="tiny dim">
+              Battles are played by hand: your monsters only act when you click one of their moves, and the ball is
+              yours to throw whenever you like. The wild monster fights back on its own timer, so a slow turn costs HP.
+            </div>
             <label className="row between small" style={{ cursor: 'pointer', marginTop: 8 }}>
               <span>Auto-assign idle monsters to habitats</span>
               <input
@@ -243,10 +236,6 @@ export function Battle() {
                 onChange={(e) => dispatch({ type: 'SET_OPTION', key: 'autoAssign', value: e.target.checked })}
               />
             </label>
-            <div className="tiny dim" style={{ marginTop: 8 }}>
-              Auto-battle always uses the move with the best expected damage, and switches to the next monster when the
-              lead faints.
-            </div>
           </Panel>
         </div>
       </div>
@@ -276,9 +265,10 @@ export function Battle() {
       )}
 
       {pickTeam && (
-        <Modal title={`Choose your battle team (up to ${MAX_TEAM})`} onClose={() => setPickTeam(false)} wide>
+        <Modal title={`Choose your battle team (${b.team.length}/${MAX_TEAM})`} onClose={() => setPickTeam(false)} wide>
           <div className="small muted" style={{ marginBottom: 10 }}>
             Monsters in the team leave their habitat while they train. Sorted strongest first.
+            {teamFull && <b style={{ color: 'var(--gold)' }}> The team is full — drop one to swap it out.</b>}
           </div>
           <div className="grid g4">
             {[...state.mons]
@@ -286,17 +276,14 @@ export function Battle() {
               .slice(0, 80)
               .map((m) => {
                 const selected = b.team.includes(m.uid);
+                const blocked = !selected && teamFull;
                 return (
                   <div
                     key={m.uid}
                     className={`mon-card ${selected ? 'selected' : ''}`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      const next = selected
-                        ? b.team.filter((u) => u !== m.uid)
-                        : [...b.team, m.uid].slice(0, MAX_TEAM);
-                      dispatch({ type: 'SET_TEAM', uids: next });
-                    }}
+                    style={{ cursor: blocked ? 'not-allowed' : 'pointer', opacity: blocked ? 0.45 : 1 }}
+                    title={blocked ? `A team holds ${MAX_TEAM} monsters` : undefined}
+                    onClick={() => dispatch({ type: 'TOGGLE_TEAM_MEMBER', uid: m.uid })}
                   >
                     <div className="art" style={{ background: 'rgba(0,0,0,.3)' }}>
                       <Sprite species={m.species} form={m.form} shiny={m.shiny} size="lg" />

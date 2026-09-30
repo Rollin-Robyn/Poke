@@ -213,6 +213,84 @@ console.log('\nbattle rules');
   })());
 }
 
+// ------------------------------------------------------- battles by hand ----
+console.log('\nbattles are played by hand');
+{
+  check('a team holds six monsters', g.MAX_TEAM === 6, String(g.MAX_TEAM));
+  check('there is no auto-battle flag left in the state', !('auto' in g.createInitialState().battle));
+  check('there is no auto-catch option left', !('autoCatch' in g.createInitialState().options));
+
+  // a strong starter so the fight cannot be lost while the clock runs
+  const ready = () => {
+    const s = fresh('charmander');
+    s.mons[0].level = 60;
+    Object.assign(s, g.reduce(s, { type: 'SET_TEAM', uids: [s.mons[0].uid] }));
+    g.simulate(s, 0.5);
+    return s;
+  };
+
+  const s = ready();
+  check('a wild monster walks in on its own', !!s.battle.enemySpec, String(s.battle.enemySpec));
+  const enemyHp = s.battle.enemy?.hp ?? 0;
+  const playerHp = s.battle.players[0]?.hp ?? 0;
+  for (let i = 0; i < 12; i++) g.simulate(s, 0.5);
+  check('the tick never attacks for the player', s.battle.enemy?.hp === enemyHp, `${s.battle.enemy?.hp} vs ${enemyHp}`);
+  check(
+    'the wild monster does fight back',
+    (s.battle.players[0]?.hp ?? 0) < playerHp || s.battle.log.some((l) => l.text.startsWith('Wild ')),
+  );
+  check('no move of yours appears without a click', !s.battle.log.some((l) => /used .* — \d+ damage$/.test(l.text) && !l.text.startsWith('Wild ')));
+
+  // a weakened monster is left alone: the ball is yours to throw
+  const t = ready();
+  t.battle.enemy.hp = 1;
+  const balls = JSON.stringify(t.balls);
+  const roster = t.mons.length;
+  const caught = t.stats.caught;
+  for (let i = 0; i < 12; i++) g.simulate(t, 0.5);
+  check('no ball is thrown for you', JSON.stringify(t.balls) === balls);
+  check('nothing is caught for you', t.mons.length === roster && t.stats.caught === caught);
+
+  // a wipe: the party rests, then comes back on its own
+  const w = ready();
+  for (const p of w.battle.players) p.hp = 0;
+  w.battle.timer = g.WIPE_REST;
+  g.simulate(w, 1);
+  check('a wiped team does not fight on', w.battle.players.every((p) => p.hp === 0));
+  g.simulate(w, g.WIPE_REST);
+  check('a wiped team rests, then heals', w.battle.players.every((p) => p.hp === p.maxHp));
+  g.simulate(w, g.ENCOUNTER_DELAY + 0.5);
+  check('the next monster walks in after the rest', !!w.battle.enemySpec, String(w.battle.enemySpec));
+}
+
+// ----------------------------------------------------------- reducer purity --
+// React may run a reducer twice for one dispatch (StrictMode does exactly that
+// in development). A shallow clone made the second pass mutate the state the
+// first pass had already changed, which handed out two starters at once.
+console.log('\nreducer purity');
+{
+  const action = { type: 'CHOOSE_STARTER', species: 'squirtle' };
+  const a = g.createInitialState();
+  const first = g.reduce(a, action);
+  check('a starter dispatch leaves the previous state alone', a.mons.length === 0, `${a.mons.length}`);
+  const replay = g.reduce(a, action);
+  check('replaying a starter dispatch does not double it', replay.mons.length === 1, `${replay.mons.length}`);
+  check('replaying gives back the same result', first.mons.length === replay.mons.length);
+  Object.assign(a, first);
+  Object.assign(a, g.reduce(a, action));
+  check('a second dispatch is refused once the reserve has started', a.mons.length === 1, `${a.mons.length}`);
+
+  const b = g.createInitialState();
+  Object.assign(b, g.reduce(b, { type: 'CHOOSE_STARTER', species: 'bulbasaur' }));
+  b.coins = 100_000;
+  const before = b.coins;
+  const once = g.reduce(b, { type: 'BUY_HABITAT', defId: g.MONO_HABITATS[0].id });
+  const twice = g.reduce(b, { type: 'BUY_HABITAT', defId: g.MONO_HABITATS[0].id });
+  check('a purchase costs the same when replayed', once.coins === twice.coins, `${once.coins} vs ${twice.coins}`);
+  check('a purchase is taken out of the balance once', before - once.coins > 0, `${before - once.coins}`);
+  check('a replayed purchase adds one habitat, not two', once.habitats.length === b.habitats.length + 1, `${once.habitats.length}`);
+}
+
 // ----------------------------------------------------------------- events ---
 console.log('\nevent rules');
 {

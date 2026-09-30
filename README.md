@@ -23,7 +23,7 @@ Ten screens, wired together so each one feeds the next.
 | **My Pokémon** | The full roster as cards: art, types, nature, production/min, happiness and sleep timer. Sort by level / output / rarity / dex number / recent. Hold items, feed berries, evolve, release. |
 | **Pokédex** | All 649 species. Uncaught species show a `?`. Detail view with base stats, breeding data, evolutions and a **Gallery** where the extra artwork (shiny, back, female, forms) is unlocked with diamonds. |
 | **Breeding** | Zones, an active pair display and parent selection. One male + one female, matching type (or one Normal) and a shared egg group. Egg rarity follows the parents; they rest afterwards. |
-| **Battle** | A team of **six**, random encounters with real moves — every move is visible with its power, accuracy, type effectiveness and recharge timer. Eight rotating biomes, catching with 14 ball types, trainer battles every 25th win. |
+| **Battle** | A team of **six**, played **by hand**: you click every move and throw every ball, and the wild monster hits back on its own timer. Every move is visible with its power, accuracy, type effectiveness and recharge timer. Eight rotating biomes, catching with 14 ball types, trainer battles every 25th win. |
 | **Events** | Four seasonal events driven by the real calendar, each unlocking forms that exist in your repo and paying out **epic-tier** rewards for event tokens. |
 | **Casino** | Six minigames, coins or diamonds, and the stake is an exact amount you type — never forced all-in. |
 | **Resort** | Diamond upgrades, achievements (they pay diamonds), the bag, **rebirth** and hard reset. |
@@ -61,7 +61,7 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 
 ## Rules that are enforced (and tested)
 
-`npm run checks` asserts the design rules against the real game logic — 93 checks:
+`npm run checks` asserts the design rules against the real game logic — 112 checks:
 
 - the starter flow hands over **only** the chosen starter, in a **monotype habitat of its own
   type**, level 1, with no free monsters and no extra habitats;
@@ -73,6 +73,11 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
   it is full;
 - the battle team is capped at six, every monster has four moves, and no two balls do the
   same thing;
+- **battles are played by hand** — the tick never attacks for the player and never throws a
+  ball, even at 1 HP; a wild monster walks in on its own and fights back, and a wiped team
+  rests before it heals;
+- **the reducer is pure** — replaying a dispatch lands in exactly the same place, so one
+  starter pick cannot hand out two monsters (React runs reducers twice in StrictMode);
 - **no event reward is above epic** — legendary and mythical monsters only come out of
   event eggs, mythic eggs and the deepest biomes;
 - casino stakes are exact (an oversized stake is refused rather than clamped);
@@ -145,7 +150,7 @@ npm run dev        play it (hot reload)
 npm run build      typecheck + production build into dist/
 npm run typecheck  tsc --noEmit
 npm run data       regenerate dex.json / items.json
-npm run checks     assert the design rules (93 checks)
+npm run checks     assert the design rules (112 checks)
 npm run smoke      render every screen headlessly on a played save *and* a new one
 npm run legacy     load a pre-rework save and check it migrates cleanly
 npm run verify     typecheck + checks + smoke + build
@@ -157,20 +162,24 @@ HOURS=24 npm run balance
 
 ## How progression is tuned
 
-Verified with `npm run balance` (greedy-buyer strategy, 7 simulated days). Battles stay a
-supplement to the reserve rather than the main income.
+Verified with `npm run balance` (greedy-buyer strategy, 7 simulated days). The greedy buyer
+also fights by hand — one move a second, and a ball at a weakened monster — because battles
+pay nothing on their own.
 
 | Time | Coins banked | Coins/min | Habitats | Monsters housed | Species caught |
 | --- | --- | --- | --- | --- | --- |
-| 6 h | 27.8 K | 470 | 6 | 8 | 13 |
-| 12 h | 53 K | 709 | 7 | 15 | 19 |
-| 24 h | 117 K | 2.1 K | 8 | 27 | 30 |
-| 48 h | 1.4 M | 6.9 K | 13 | 58 | 56 |
-| 3 days | 3.2 M | 19.2 K | 14 | 103 | 92 |
-| 7 days | 16–21 M | 75 K | 17 | 331 | 204 |
+| 6 h | 6.3 K | 0 | 3 | 0 | 6 |
+| 12 h | 25 K | 274 | 9 | 6 | 15 |
+| 24 h | 173 K | 2.2 K | 11 | 28 | 32 |
+| 48 h | 1.4 M | 8.0 K | 15 | 65 | 66 |
+| 3 days | 1.9 M | 18.7 K | 16 | 119 | 108 |
+| 7 days | 24 M | 75 K | 17 | 328 | 203 |
 
-A player who never spends anything earns ~5 K/hour from battles alone, so a passive start is
-slow on purpose — the first capacity upgrade is the real first decision.
+Battles are a hand-played track, not an idle one. Every run sends the starter into the battle
+team, which takes it out of its habitat, so the "pure idle" playthrough — no purchases, no
+clicks — is still sitting on its 500 starting coins after seven days: nothing is caught,
+nothing is housed, nothing compounds. A player who fights fills the reserve with what they
+catch, and the first capacity upgrade is the real first decision.
 
 Rebirth curve: 5 M lifetime → +2 coins, 100 M → +12, 1 B → +44, 1 T → +1995.
 

@@ -70,13 +70,19 @@ export function migrateSave(raw: unknown): GameState {
 
 function migrate(state: GameState): GameState {
   const fresh = createInitialState();
+  const options = { ...fresh.options, ...(state.options ?? {}) };
+  const battle = { ...fresh.battle, ...(state.battle ?? {}) };
+  // retired settings: auto-battle and auto-catch are gone, so drop whatever an
+  // old save still carries instead of letting a dead switch ride along forever
+  delete (options as { autoCatch?: boolean }).autoCatch;
+  delete (battle as { auto?: boolean }).auto;
   const merged: GameState = {
     ...fresh,
     ...state,
     version: SAVE_VERSION,
     stats: { ...fresh.stats, ...(state.stats ?? {}) },
-    options: { ...fresh.options, ...(state.options ?? {}) },
-    battle: { ...fresh.battle, ...(state.battle ?? {}) },
+    options,
+    battle,
     boosts: state.boosts ?? [],
     eventClaimed: state.eventClaimed ?? [],
     balls: state.balls ?? { 'poke-ball': 10 },

@@ -152,6 +152,15 @@ export function moveCooldown(move: MoveDef, speed: number): number {
 }
 
 // --------------------------------------------------------------- encounters --
+// Battles are played by hand: the player clicks every move and throws every
+// ball. The tick only paces the fight - it walks the next wild monster in
+// after a beat and lets that monster act on its own timer.
+
+/** Seconds between two wild encounters. */
+export const ENCOUNTER_DELAY = 1.2;
+/** Seconds the party spends resting after a wipe before it can fight again. */
+export const WIPE_REST = 5;
+
 export function biomeById(id: string): BiomeDef {
   return BIOME_BY_ID[id] ?? BIOMES[0];
 }
@@ -204,7 +213,7 @@ export interface DamageResult {
   move: MoveDef;
 }
 
-/** Tuned so an auto-battle runs roughly 20-30 seconds. */
+/** Tuned so a fight lasts roughly 20-30 seconds of clicking. */
 export const DAMAGE_DIVISOR = 22;
 
 export function computeDamage(
@@ -314,7 +323,6 @@ export function makeInitialBattle(): BattleState {
     turn: 0,
     log: [],
     logId: 1,
-    auto: true,
     progress: 0,
     rotateAt: 25,
     timer: 0,
