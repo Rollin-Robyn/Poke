@@ -7,17 +7,18 @@ export type { DexEntry, Rarity } from './dex';
 
 export {
   BIOMES, BIOME_BY_ID, CASINO_GAMES, EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, EVENTS, HABITATS,
+  SPECIAL_BIOME_AFTER, SPECIAL_BIOME_CHANCE,
   HABITAT_BY_ID, INCUBATORS, INCUBATOR_BY_ID, ITEMS, ITEM_BY_ID, MONO_HABITATS, MONO_BASE_COST,
   MULTI_HABITATS, SLOT_SYMBOLS, currentEvent, eventCurrencyName, habitatAccepts, nextHabitatCost,
   slotUpgradeCost,
 } from './content';
-export type { CasinoGameDef, EggTierDef, EventEggDef, HabitatClass } from './content';
+export type { CasinoGameDef, EggTierDef, EggTierId, EventEggDef, HabitatClass } from './content';
 export type { BiomeDef, EventDef, HabitatDef, IncubatorDef, ItemDef } from './content';
 
 export {
   DIAMOND_UPGRADES, DIAMOND_UPGRADE_BY_ID, GENDER_ICON, UPGRADES, UPGRADE_BY_ID,
   breedingMultiplier, canEnterHabitat, countHabitatClass, diamondLevel, eggStorageCap, energyLabel,
-  habitatRarityCap, habitatRejection, rarityAllowed,
+  habitatRarityCap, habitatRejection, habitatCapacityLevel, habitatRarityLevel, habitatPendingCoins, totalPendingHabitatCoins, rarityAllowed,
   gainXp, globalCoinMultiplier, habitatDefOf, habitatFreeSlots, habitatProduction, habitatSlots,
   happinessTier, housedCount, incubationMultiplier, monBaseOutput, monOutputWithHabitat,
   monsInHabitat, natureBlurb, ownedHabitat, productionPerMinute, storageCap, totalHabitatSlots,
@@ -26,7 +27,7 @@ export {
 
 export { ACHIEVEMENTS } from './achievements';
 export {
-  BALLS, BALL_BY_ID, MOVES, battleCoins, battleXp, ballContextFor, biomePool, catchChance, movesFor,
+  BALLS, BALL_BY_ID, MOVES, battleCoins, battleXp, ballContextFor, biomeLevelRange, biomePool, catchChance, levelBonus, learnsetOf, movesFor, movesForMon,
 } from './battle';
 export type { BallDef, CatchContext, MoveDef } from './battle';
 export { breedingCompatible, breedingTime, canRebirth, rebirthGain } from './reducer';

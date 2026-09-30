@@ -1,8 +1,9 @@
-import { BIOME_BY_ID, HABITAT_BY_ID, MONO_HABITATS, MULTI_HABITATS } from './content';
+import { BIOME_BY_ID, EGG_TIERS, HABITAT_BY_ID, MONO_HABITATS, MULTI_HABITATS } from './content';
 import { createInitialState, fastForward, makeMon, syncBattleTeam, SAVE_VERSION } from './reducer';
-import { DEX, DEX_IDS } from './dex';
+import { DEX, DEX_IDS, RARITIES, type Rarity } from './dex';
 import { clamp } from './rng';
-import type { GameState, Mon } from './state';
+import { totalPendingHabitatCoins } from './state';
+import type { GameState, IVSet, Mon } from './state';
 
 const HABITAT_EXISTS = (defId: string): boolean => !!HABITAT_BY_ID[defId];
 
@@ -53,9 +54,9 @@ export function loadGame(): LoadResult {
   const away = Math.max(0, (Date.now() - (state.lastSaved || state.lastTick || Date.now())) / 1000);
   let offline: { seconds: number; coins: number } | null = null;
   if (away > 90 && state.started) {
-    const before = state.coins;
+    const before = totalPendingHabitatCoins(state);
     fastForward(state, away);
-    const coins = state.coins - before;
+    const coins = totalPendingHabitatCoins(state) - before;
     if (coins > 1) offline = { seconds: Math.min(away, 12 * 3600), coins };
     state.offlineReport = { seconds: Math.min(away, 12 * 3600), coins, items: 0 };
   }
@@ -88,9 +89,16 @@ function migrate(state: GameState): GameState {
     balls: state.balls ?? { 'poke-ball': 10 },
     casinoResult: null,
   };
+  // Hourly crates were removed; do not carry the obsolete purse into a new save.
+  delete (merged as GameState & { crates?: unknown }).crates;
   // guard against saves from a build before certain collections existed
   merged.habitats ??= [];
   merged.eggs ??= [];
+  merged.eggs = merged.eggs.map((egg) => {
+    const product = EGG_TIERS.find((candidate) => candidate.id === egg.eggTierId);
+    const tier: Rarity = product?.rarity ?? (RARITIES.includes(egg.tier as Rarity) ? egg.tier as Rarity : 'common');
+    return { ...egg, tier, eggTierId: product?.id ?? EGG_TIERS.find((candidate) => candidate.rarity === tier)?.id, shiny: !!egg.shiny };
+  });
   merged.hatches ??= [];
   merged.breedingPairs ??= [];
   merged.itemBag ??= {};
@@ -98,8 +106,6 @@ function migrate(state: GameState): GameState {
   merged.galleryUnlocked ??= [];
   merged.achievements ??= [];
   merged.shopUnlocked ??= [];
-  // the daily delivery is gone: only the hourly crate survives a migration
-  merged.crates = { hourly: Number((merged.crates as { hourly?: number } | undefined)?.hourly) || 0 };
   merged.diamondExchanges = Number(merged.diamondExchanges) || 0;
   merged.dexSeen ??= [];
   merged.dexCaught ??= [];
@@ -130,6 +136,8 @@ function migrate(state: GameState): GameState {
   merged.battle.rewards.items ??= {};
   merged.battle.turn ??= 0;
   merged.battle.cleared ??= 0;
+  merged.battle.biomesPassed ??= 0;
+  merged.battle.activeUid ??= merged.battle.team?.[0] ?? null;
   merged.battle.biomeId ??= 'meadow';
   // a save from the real-time version carries per-monster cooldown maps and an
   // `auto` flag that no longer exist; the tier comes from the area it is in
@@ -153,6 +161,12 @@ function migrate(state: GameState): GameState {
 }
 
 /** Fill in every field a monster needs, whatever era of save it came from. */
+function normalizeIvs(raw: unknown, fallback: number): IVSet {
+  const source = (raw ?? {}) as Partial<Record<keyof IVSet, unknown>>;
+  const value = (key: keyof IVSet) => clamp(Math.floor(Number.isFinite(Number(source[key])) ? Number(source[key]) : fallback), 0, 31);
+  return { hp: value('hp'), atk: value('atk'), def: value('def'), spa: value('spa'), spd: value('spd'), spe: value('spe') };
+}
+
 function normalizeMon(raw: Mon, index: number): Mon {
   const m = (raw ?? {}) as Partial<Mon>;
   const species = typeof m.species === 'string' && DEX[m.species] ? m.species : DEX_IDS[0];
@@ -166,12 +180,16 @@ function normalizeMon(raw: Mon, index: number): Mon {
     level,
     xp: Math.max(0, Number(m.xp) || 0),
     nature: typeof m.nature === 'string' && m.nature ? m.nature : base.nature,
-    iv: clamp(Math.floor(Number(m.iv) ?? base.iv), 0, 31),
+    iv: clamp(Math.floor(Number.isFinite(Number(m.iv)) ? Number(m.iv) : base.iv), 0, 31),
+    ivs: normalizeIvs(m.ivs, Math.floor(Number.isFinite(Number(m.iv)) ? Number(m.iv) : base.iv)),
+    eggMoves: Array.isArray(m.eggMoves) ? m.eggMoves.filter((id): id is string => typeof id === 'string') : [],
+    tmMoves: Array.isArray(m.tmMoves) ? m.tmMoves.filter((id): id is string => typeof id === 'string') : [],
     shiny: !!m.shiny,
     form: typeof m.form === 'string' && m.form ? m.form : null,
     gender,
-    happiness: clamp(Number(m.happiness) ?? 55, 0, 100),
-    energy: Math.max(0, Number(m.energy) || 3600),
+    happiness: clamp(Number.isFinite(Number(m.happiness)) ? Number(m.happiness) : 55, 0, 100),
+    energy: Math.max(0, Number.isFinite(Number(m.energy)) ? Number(m.energy) : 3600),
+    restRemaining: Math.max(0, Number.isFinite(Number(m.restRemaining)) ? Number(m.restRemaining) : 0),
     habitatId: typeof m.habitatId === 'string' && m.habitatId ? m.habitatId : null,
     heldItem: typeof m.heldItem === 'string' ? m.heldItem : null,
     breedReadyAt: Number(m.breedReadyAt) || 0,
@@ -196,11 +214,20 @@ function migratedHabitats(raw: unknown): {
   const remap: Record<string, string> = {};
   const habitats = raw
     .map((h, i) => {
-      const anyH = h as { id?: string; defId?: string; slotLevel?: number; habId?: string; slots?: number };
+      const anyH = h as {
+        id?: string; defId?: string; slotLevel?: number; capacityLevel?: number;
+        rarityLevel?: number; pendingCoins?: number; name?: string; habId?: string; slots?: number;
+      };
       if (anyH.id && anyH.defId && HABITAT_EXISTS(anyH.defId)) {
         // already an instance; keep its id stable so monsters keep pointing at it
         if (anyH.habId) remap[anyH.habId] = anyH.id;
-        return { id: anyH.id, defId: anyH.defId, slotLevel: Math.max(0, anyH.slotLevel ?? 0) };
+        const capacity = Math.max(0, anyH.capacityLevel ?? anyH.slotLevel ?? 0);
+        const rarity = Math.max(0, anyH.rarityLevel ?? anyH.slotLevel ?? 0);
+        return {
+          id: anyH.id, defId: anyH.defId, slotLevel: capacity,
+          capacityLevel: capacity, rarityLevel: rarity,
+          pendingCoins: Math.max(0, Number(anyH.pendingCoins) || 0), name: anyH.name,
+        };
       }
       const legacyTypes = LEGACY_HABITAT_TYPES[anyH.habId ?? ''] ?? ['Normal'];
       const defId = findClosestHabitat(legacyTypes);
@@ -210,8 +237,13 @@ function migratedHabitats(raw: unknown): {
       return {
         id,
         defId,
-        // a 4-slot habitat becomes 1 slot + 3 upgrades
+        // a 4-slot habitat becomes 1 slot + 3 capacity upgrades. Give the
+        // rarity track the same historical progress rather than trapping old
+        // rare Pokémon in a newly split system.
         slotLevel: Math.max(0, (anyH.slots ?? 1) - 1),
+        capacityLevel: Math.max(0, (anyH.slots ?? 1) - 1),
+        rarityLevel: Math.max(0, (anyH.slots ?? 1) - 1),
+        pendingCoins: 0,
       };
     })
     .filter((h) => !!h.defId);

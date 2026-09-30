@@ -30,5 +30,6 @@ work-in-progress sketch can sit here without breaking the manifest.
 
 The record is part of your Pokédex, so gallery progress survives rebirth.
 
-This folder ships empty: until art is added the Gallery screen shows its empty
-state and tells you where to put the files.
+This folder ships empty: until art is added, caught species still receive individual
+species pages using their battle sprites; the importer adds optional artwork frames to
+those pages and tells you where to put the files.

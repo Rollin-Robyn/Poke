@@ -153,8 +153,8 @@ export function Resort() {
                   <div style={{ fontWeight: 600 }}>{a.name}</div>
                   <div className="tiny dim">{a.blurb}</div>
                 </div>
-                <span className="tag" style={{ color: 'var(--diamond)', borderColor: 'var(--diamond)' }}>
-                  {done ? '✓' : `💎${a.diamonds}`}
+                <span className="tag" style={{ color: done ? 'var(--good)' : a.diamonds ? 'var(--diamond)' : 'var(--gold)', borderColor: done ? 'var(--good)' : a.diamonds ? 'var(--diamond)' : 'var(--gold)' }}>
+                  {done ? '✓' : [a.coins ? `⛁${fmt(a.coins)}` : '', a.diamonds ? `💎${a.diamonds}` : ''].filter(Boolean).join(' + ')}
                 </span>
               </div>
             );
@@ -169,7 +169,8 @@ export function Resort() {
         <div className="small muted">
           Coins are earned by monsters actually living in habitats. There are no "+% coins" upgrades: what raises your
           income is <b>more monsters</b> (capacity upgrades and more habitats) and <b>rarer monsters</b> (better eggs,
-          breeding, events). A habitat's capacity upgrades also raise the rarest tier it will accept.
+          breeding, events). Capacity and rarity are separate habitat upgrade tracks, so room does not unlock rare
+          residents for free.
           <br />
           Save management — export, import and a full reset — lives in the <b>⚙️ Settings</b> menu in the header.
         </div>

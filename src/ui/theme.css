@@ -308,6 +308,7 @@ input[type='range'] { accent-color: var(--gold); }
 .gallery-frame {
   border-radius: var(--radius); border: 1px solid var(--line);
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  color: var(--text); font: inherit; text-align: left; padding: 0;
   overflow: hidden; display: flex; flex-direction: column; cursor: pointer;
   transition: border-color .15s, transform .12s;
 }

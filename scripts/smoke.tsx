@@ -56,7 +56,6 @@ function richState(): GameState {
   s.stats.battlesWon = 120;
   s.stats.hatched = 12;
   s.stats.bred = 2;
-  s.crates = { hourly: Date.now() - 2 * 60 * 60 * 1000, daily: Date.now() - 26 * 60 * 60 * 1000 };
 
   for (const id of ['bulbasaur', 'charmander', 'squirtle', 'pikachu', 'gyarados', 'mewtwo', 'eevee']) {
     s.mons.push(makeMon(id, 12));

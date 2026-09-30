@@ -157,11 +157,12 @@ export function App() {
             </div>
             <div className="row" style={{ gap: 22 }}>
               <div>
-                <div className="tiny muted">EARNED</div>
+                <div className="tiny muted">PENDING IN HABITATS</div>
                 <div className="big" style={{ fontSize: 22, color: 'var(--gold)' }}>⛁ {fmt(offline.coins)}</div>
               </div>
             </div>
-            <button className="btn primary" onClick={dismissOffline}>Collect</button>
+            <div className="tiny dim">This cash has not entered your balance. Collect it from the habitat cards on Dashboard or My Habitats.</div>
+            <button className="btn primary" onClick={() => { setTab('dashboard'); dismissOffline(); }}>Review habitat cash</button>
           </div>
         </Modal>
       )}

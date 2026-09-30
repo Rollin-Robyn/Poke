@@ -109,16 +109,16 @@ export function Eggs() {
               </button>
             ))}
           </div>
-          <span className="tiny dim">Field, Hatchling and Reserve eggs cost coins · Radiant and Mythic eggs cost diamonds only</span>
+          <span className="tiny dim">Starter tiers cost coins; premium tiers cost diamonds · storage starts at only 3 slots and expands with upgrades</span>
         </div>
         <div className="grid g3">
           {EGG_TIERS.map((t) => {
-            const meta = RARITY_META[t.id];
+            const meta = RARITY_META[t.rarity];
             const total = t.cost * buyQty;
             const space = state.eggs.length + buyQty <= cap;
             const diamonds = t.currency === 'diamonds';
             const affordable = diamonds ? state.diamonds >= total : state.coins >= total;
-            const incubateTime = (RARITY_HATCH_TIME[t.id] * 60) / Math.max(0.01, speed);
+            const incubateTime = (t.minutes * 60) / Math.max(0.01, speed);
             return (
               <div key={t.id} className="panel" style={{ padding: 13, borderColor: `${meta.color}55` }}>
                 <div className="row between">
@@ -221,7 +221,8 @@ export function Eggs() {
               const busy = state.hatches.filter((h) => h.incubatorId === inc.id).length;
               const slots = inc.slots + (state.shardUpgrades.extraIncubator ?? 0);
               const egg = state.eggs.find((e) => e.id === placing);
-              const time = egg ? (RARITY_HATCH_TIME[egg.tier] * 60) / (inc.speed * speed) : 0;
+              const product = egg ? EGG_TIERS.find((t) => t.id === egg.eggTierId) : null;
+              const time = egg ? ((product?.minutes ?? RARITY_HATCH_TIME[egg.tier]) * 60) / (inc.speed * speed) : 0;
               return (
                 <button
                   key={inc.id}
