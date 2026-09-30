@@ -84,7 +84,7 @@ function playthrough(label, strategy) {
   reduce(s, { type: 'SET_TEAM', uids: s.mons.slice(0, 6).map((m) => m.uid) });
   let t = 0;
   const HOURS = Number(process.env.HOURS ?? 12);
-  // crates, boosts and seasonal events read the wall clock, so the harness
+  // boosts and seasonal events read the wall clock, so the harness
   // drives Date.now() along with the simulated seconds
   const clockStart = Date.now();
   const realNow = Date.now;
@@ -180,6 +180,12 @@ function greedy(s, t) {
   // no output multipliers any more: money comes from capacity and rarity
   buyUpgrade('eggStorage') || buyUpgrade('stamina') || buyUpgrade('campSpeed') || buyUpgrade('happiness');
 
+  // The scripted player also has to click completed eggs; incubation never
+  // hatches automatically in the game.
+  for (const hatch of [...s.hatches]) {
+    if (hatch.remaining <= 0) reduce(s, { type: 'HATCH_EGG', hatchId: hatch.id });
+  }
+
   // keep every incubator busy with the best coin egg affordable, and buy incubators
   const incSlots = g.totalIncubatorSlots(s);
   const owned = s.shopUnlocked.filter((u) => u.startsWith('inc:')).map((u) => u.slice(4));
@@ -209,10 +215,10 @@ function greedy(s, t) {
     reduce(s, { type: 'AUTO_ASSIGN' });
   }
 
-  // pick up the wall-clock crates whenever they land
+  // the greedy buyer manually collects habitat purses, then trades spare coins
+  // for diamonds at the exchange.
   if (t % 60 === 0) {
-    reduce(s, { type: 'CLAIM_CRATE' });
-    // the greedy buyer also trades spare coins for diamonds at the exchange
+    reduce(s, { type: 'COLLECT_ALL_HABITAT_CASH' });
     while (s.coins > g.diamondExchangeCost(s) * 6) reduce(s, { type: 'CONVERT_COINS_TO_DIAMONDS' });
   }
 

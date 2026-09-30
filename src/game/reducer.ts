@@ -1,10 +1,9 @@
-import { EVENTS, ITEMS, ITEM_BY_ID, HABITAT_BY_ID, HABITATS, INCUBATORS, INCUBATOR_BY_ID, BIOMES, BIOME_BY_ID, EGG_HATCH_LEVEL, EGG_TIERS, eventFormFor, type HabitatDef, type IncubatorDef } from './content';
-import { ACHIEVEMENTS } from './achievements';
+import { EVENTS, ITEMS, ITEM_BY_ID, HABITAT_BY_ID, HABITATS, INCUBATORS, INCUBATOR_BY_ID, BIOMES, BIOME_BY_ID, EGG_HATCH_LEVEL, EGG_TIERS, SPECIAL_BIOME_AFTER, SPECIAL_BIOME_CHANCE, eventFormFor, type HabitatDef, type IncubatorDef, type EggTierId } from './content';
 import { currentEvent } from './content';
 import {
   BALLS, BALL_BY_ID, BALL_IDS, battleCoins, battleXp, catchChance, computeDamage, makeInitialBattle,
-  ENCOUNTER_DELAY, WIPE_REST, biomeLevelRange, movesFor, pushBattleLog, rollItemReward, spawnEnemy,
-  rollBiomeTier, randomBiomeOfTier, tierOf, effectiveSpeed, actsFirst, QUICK_CLAW, QUICK_CLAW_CHANCE,
+  ENCOUNTER_DELAY, WIPE_REST, biomeLevelRange, movesFor, movesForMon, pushBattleLog, rollItemReward, spawnEnemy,
+  randomBiomeOfTier, effectiveSpeed, actsFirst, QUICK_CLAW, QUICK_CLAW_CHANCE,
   WILD_DAMAGE_SCALE, levelBonus, type MoveDef, type TurnSide,
 } from './battle';
 import { DEX, DEX_IDS, RARITIES, RARITY_HATCH_TIME, entry, statsAt, type Rarity } from './dex';
@@ -14,13 +13,15 @@ import {
   DIAMOND_UPGRADE_BY_ID, UPGRADE_BY_ID, awakeSeconds, breedingMultiplier, canEnterHabitat, diamondLevel,
   xpNeeded,
   eggStorageCap, energyLabel, gainXp, globalCoinMultiplier, habitatProduction, happinessRate,
-  habitatSlots, incubationMultiplier, monOutputWithHabitat, productionPerMinute, storageCap,
+  habitatSlots, incubationMultiplier, monOutputWithHabitat, monBaseOutput, productionPerMinute, storageCap,
   totalHabitatSlots, upgradeLevel, MAX_TEAM,
 } from './state';
 import { typeMultiplier } from './typechart';
-import type { BattleMon, BattleState, GameState, Gender, Mon, StoredEgg } from './state';
+import type { BattleMon, BattleState, BreedingInheritance, BreedingStat, GameState, Gender, IVSet, Mon, StoredEgg } from './state';
 
 export const SAVE_VERSION = 2;
+/** Starters begin with enough training to make the first battle welcoming. */
+export const STARTER_LEVEL = 5;
 const OFFLINE_CAP_SECONDS = 12 * 3600;
 const TICK_STEP = 1; // seconds of simulation per tick call in the live loop
 
@@ -28,7 +29,7 @@ const TICK_STEP = 1; // seconds of simulation per tick call in the live loop
 export function makeMon(
   species: string,
   level = 1,
-  opts: Partial<Pick<Mon, 'shiny' | 'gender' | 'nature' | 'iv' | 'form'>> = {},
+  opts: Partial<Pick<Mon, 'shiny' | 'gender' | 'nature' | 'iv' | 'form' | 'ivs' | 'eggMoves' | 'tmMoves'>> = {},
 ): Mon {
   const e = entry(species);
   const g = e.gender;
@@ -37,6 +38,13 @@ export function makeMon(
   else if (g.lock === 'M') gender = 'M';
   else if (g.lock === 'F') gender = 'F';
   else gender = Math.random() < g.M ? 'M' : 'F';
+  if (opts.gender === 'M' || opts.gender === 'F' || opts.gender === 'N') gender = opts.gender;
+  const summaryIv = opts.iv ?? rndInt(0, 31);
+  const ivs: IVSet = opts.ivs ?? {
+    hp: summaryIv, atk: summaryIv, def: summaryIv,
+    spa: summaryIv, spd: summaryIv, spe: summaryIv,
+  };
+  const averageIv = Math.round(Object.values(ivs).reduce((a, n) => a + n, 0) / 6);
   return {
     uid: uid('p'),
     species,
@@ -45,10 +53,14 @@ export function makeMon(
     xp: 0,
     gender,
     nature: opts.nature ?? pick(NATURES).id,
-    iv: opts.iv ?? rndInt(0, 31),
+    iv: averageIv,
+    ivs,
+    eggMoves: opts.eggMoves ?? [],
+    tmMoves: opts.tmMoves ?? [],
     shiny: opts.shiny ?? false,
     happiness: 55,
     energy: 3600,
+    restRemaining: 0,
     heldItem: null,
     habitatId: null,
     hp: undefined,
@@ -98,7 +110,6 @@ export function createInitialState(): GameState {
     boosts: [],
     eventClaimed: [],
     casinoResult: null,
-    crates: { hourly: 0 },
     diamondExchanges: 0,
     started: false,
   };
@@ -152,9 +163,12 @@ export function autoAssign(s: GameState): void {
     def: HABITAT_BY_ID[h.defId],
     count: habitatSlots(h) - s.mons.filter((m) => m.habitatId === h.id).length,
   }));
+  const output = (m: Mon) => m.habitatId
+    ? monOutputWithHabitat(s, m)
+    : monBaseOutput(m);
   const candidates = s.mons
     .filter((m) => !m.habitatId && !s.battle.team.includes(m.uid))
-    .sort((a, b) => monOutputWithHabitat(s, b) - monOutputWithHabitat(s, a));
+    .sort((a, b) => output(b) - output(a));
   for (const mon of candidates) {
     const slot = free.find((f) => f.count > 0 && f.def && canEnterHabitat(mon, f.instance, f.def));
     if (!slot) continue;
@@ -182,39 +196,43 @@ function grantItems(s: GameState, itemId: string, qty = 1): void {
   s.stats.itemsFound += qty;
 }
 
-function checkAchievements(s: GameState): void {
-  for (const a of ACHIEVEMENTS) {
-    if (s.achievements.includes(a.id)) continue;
-    if (a.check(s)) {
-      s.achievements.push(a.id);
-      s.diamonds += a.diamonds;
-      log(s, `Achievement: ${a.name} (+${a.diamonds} 💎)`, 'good');
-    }
-  }
+/**
+ * Achievement completion is derived from the current state. Rewards are not
+ * granted here: the player must explicitly dispatch CLAIM_ACHIEVEMENT.
+ * Keeping this hook makes old callers safe while removing the former automatic
+ * collection side effect.
+ */
+export function checkAchievements(_s: GameState): void {
+  // Intentionally empty. The UI evaluates each definition's check predicate
+  // and the action layer validates it again before paying the reward.
 }
 
 // ------------------------------------------------------------------ eggs ---
-function hatchEgg(
+export function hatchEgg(
   s: GameState,
   tier: Rarity,
   shiny: boolean,
   parents?: [string, string],
   eventId?: string | null,
+  inheritance?: BreedingInheritance,
 ): Mon | null {
   if (s.mons.length >= storageCap(s)) {
     log(s, 'Storage is full — the egg waits for space.', 'bad');
     return null;
   }
   let species: string;
-  if (parents) {
+  if (inheritance) {
+    // Breeding always produces the female parent's species. Male influence is
+    // carried in the IVs and inherited move lists instead.
+    species = inheritance.species;
+  } else if (parents) {
+    // Legacy breeding eggs only had two parents; keep those saves playable.
     species = pick([parents[0], parents[1]]);
   } else {
-    // event eggs roll on their own table, which reaches into legendary/mythic
     let pool = DEX_IDS.filter((id) => DEX[id].rarity === tier);
     if (eventId) pool = pool.filter((id) => DEX[id].tags?.length);
     if (!pool.length) pool = DEX_IDS.filter((id) => DEX[id].rarity === tier);
     species = pick(pool);
-    // Rare Hatchery can push a hatched egg up a tier
     if (chance(diamondLevel(s, 'rareHatchery') * 0.15)) {
       const idx = RARITIES.indexOf(tier);
       const better = RARITIES[Math.min(RARITIES.length - 1, idx + 1)];
@@ -223,7 +241,6 @@ function hatchEgg(
     }
   }
   const ivBonus = diamondLevel(s, 'ivLab');
-  // festival eggs occasionally hatch a special form of the same rarity
   let form: string | null = null;
   if (eventId && chance(0.3)) {
     const special = eventFormFor(tier, Math.random());
@@ -232,10 +249,12 @@ function hatchEgg(
       form = special.form;
     }
   }
-  // every hatched monster starts at level 1 - the reward is rarity, not levels
   const mon = makeMon(species, EGG_HATCH_LEVEL, {
     shiny,
     iv: clamp(rndInt(0, 31) + ivBonus, 0, 31),
+    ivs: inheritance?.ivs,
+    eggMoves: inheritance?.eggMoves,
+    tmMoves: inheritance?.tmMoves,
     form,
   });
   s.mons.push(mon);
@@ -293,9 +312,8 @@ export function breedingCompatible(a: Mon, b: Mon): { ok: boolean; reason?: stri
   }
   const sharedGroup = ea.eggGroups.some((g) => eb.eggGroups.includes(g));
   if (!sharedGroup) return { ok: false, reason: 'Different egg groups.' };
-  const typeOk =
-    ea.types.some((t) => eb.types.includes(t)) || ea.types.includes('Normal') || eb.types.includes('Normal');
-  if (!typeOk) return { ok: false, reason: 'Types must match, or one must be Normal.' };
+  // Egg groups are the compatibility rule. Pokémon games do not require the
+  // parents to share a type, so a compatible group is enough here too.
   return { ok: true };
 }
 
@@ -310,6 +328,42 @@ export function breedingTime(a: Mon, b: Mon, s: GameState): number {
   return Math.ceil(base / breedingMultiplier(s));
 }
 
+const BREEDING_STATS: BreedingStat[] = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
+
+function ivsOf(mon: Mon): IVSet {
+  const value = mon.iv ?? 0;
+  return mon.ivs ?? { hp: value, atk: value, def: value, spa: value, spd: value, spe: value };
+}
+
+/** Resolve the female species and the male's selected inheritance at egg time. */
+export function breedingInheritance(female: Mon, male: Mon): BreedingInheritance {
+  const femaleIvs = ivsOf(female);
+  const maleIvs = ivsOf(male);
+  const destinyKnot = female.heldItem === 'destiny-knot' || male.heldItem === 'destiny-knot';
+  // Without a Destiny Knot, three male IVs are inherited. With one, five are
+  // selected from the male's strongest stats, making the item strategically
+  // useful instead of merely adding a hidden random bonus.
+  const inheritedStats = destinyKnot
+    ? [...BREEDING_STATS].sort((a, b) => maleIvs[b] - maleIvs[a]).slice(0, 5)
+    : [...BREEDING_STATS].sort(() => Math.random() - 0.5).slice(0, 3);
+  const ivs: IVSet = { ...femaleIvs };
+  for (const stat of inheritedStats) ivs[stat] = maleIvs[stat];
+  const femaleMoves = new Set(movesForMon(female).map((m) => m.id));
+  const maleLearnedMoves = movesFor(male.species, male.level).map((m) => m.id);
+  const eggMoves = [...new Set([...(male.eggMoves ?? []), ...maleLearnedMoves])]
+    .filter((id) => !femaleMoves.has(id) && !male.tmMoves?.includes(id)).slice(-2);
+  const tmMoves = [...new Set([...(female.tmMoves ?? []), ...(male.tmMoves ?? [])])].slice(-4);
+  return {
+    species: female.species,
+    female: female.uid,
+    male: male.uid,
+    ivs,
+    eggMoves,
+    tmMoves,
+    inheritedStats,
+  };
+}
+
 // ----------------------------------------------------------------- battle ---
 /**
  * A fight is a string of turns. Nothing moves until the player picks a move
@@ -319,12 +373,10 @@ export function breedingTime(a: Mon, b: Mon, s: GameState): number {
 function startEncounter(s: GameState): void {
   const b = s.battle;
   const biome = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
-  // wild monsters scale with the tier of the area and with how much has been cleared
-  const [lo, hi] = biomeLevelRange(biome, b.cleared);
-  const team = s.mons.filter((m) => b.team.includes(m.uid));
-  const avg = team.length ? team.reduce((a, m) => a + m.level, 0) / team.length : (lo + hi) / 2;
-  const level = clamp(Math.round(avg) + rndInt(-2, 2), lo, hi);
-  const spawn = spawnEnemy(s, biome, [Math.min(level, hi), Math.max(level, lo)]);
+  // Ordinary biomes all use the same base band. The only level scaling is the
+  // number of complete biomes this expedition has passed.
+  const [lo, hi] = biomeLevelRange(biome, b.biomesPassed);
+  const spawn = spawnEnemy(s, biome, [lo, hi]);
   const mon = makeMon(spawn.species, spawn.level, { shiny: spawn.shiny });
   b.enemyId = mon.uid;
   b.enemySpec = spawn.species;
@@ -350,6 +402,9 @@ export function syncBattleTeam(s: GameState): void {
     if (prev && prev.maxHp === stats.hp) return prev;
     return { uid: u, hp: stats.hp, maxHp: stats.hp };
   });
+  if (!b.activeUid || !team.includes(b.activeUid) || !b.players.some((p) => p.uid === b.activeUid && p.hp > 0)) {
+    b.activeUid = b.players.find((p) => p.hp > 0)?.uid ?? team[0] ?? null;
+  }
 }
 
 function healTeam(s: GameState): void {
@@ -359,7 +414,10 @@ function healTeam(s: GameState): void {
 
 /** The monster currently out in front: the first one of yours still standing. */
 export function battleLead(s: GameState): BattleMon | null {
-  return s.battle.players.find((p) => p.hp > 0) ?? null;
+  const active = s.battle.activeUid
+    ? s.battle.players.find((p) => p.uid === s.battle.activeUid && p.hp > 0)
+    : null;
+  return active ?? s.battle.players.find((p) => p.hp > 0) ?? null;
 }
 
 function awardBattleRewards(s: GameState, enemyLevel: number, isBoss: boolean): void {
@@ -425,6 +483,47 @@ function awardBattleRewards(s: GameState, enemyLevel: number, isBoss: boolean): 
 }
 
 // -------------------------------------------------------------- turn logic ---
+/**
+ * Switching is a turn action. The wild move is chosen before the switch and
+ * then applied to the newly deployed Pokémon unchanged, so switching does not
+ * cause the wild AI to re-roll a move that happens to exploit the new type.
+ */
+export function switchBattlePokemon(s: GameState, uidToDeploy: string): { ok: boolean; text: string } {
+  const b = s.battle;
+  if (!b.enemy || !b.enemySpec) return { ok: false, text: 'There is no wild Pokémon to switch against.' };
+  const current = battleLead(s);
+  const target = b.players.find((p) => p.uid === uidToDeploy && p.hp > 0);
+  const mon = s.mons.find((m) => m.uid === uidToDeploy);
+  if (!target || !mon) return { ok: false, text: 'That Pokémon cannot switch in.' };
+  if (current?.uid === uidToDeploy) return { ok: false, text: 'That Pokémon is already deployed.' };
+
+  const enemyMove = enemyChooseMove(s);
+  b.activeUid = uidToDeploy;
+  b.turn += 1;
+  const deployed = battleLead(s);
+  if (enemyMove && deployed) {
+    const deployedMon = s.mons.find((m) => m.uid === deployed.uid);
+    const wild = enemySide(s, enemyMove);
+    if (deployedMon && wild) {
+      // A switch spends the player's turn: the newly deployed monster does not
+      // attack. The wild move was selected before the switch and is applied to
+      // this target without recalculating its move for the new type matchup.
+      const target: TurnSide = {
+        species: deployedMon.species,
+        combatant: { species: deployedMon.species, level: deployedMon.level, nature: deployedMon.nature, iv: deployedMon.iv },
+        move: enemyMove,
+        player: true,
+        speed: 0,
+        claw: false,
+        mon: deployed,
+      };
+      applyAttack(s, wild, target);
+      if (deployed.hp <= 0) handleFaint(s, target);
+    }
+  }
+  return { ok: true, text: `${entry(mon.species).name} switched in.` };
+}
+
 /** The wild monster's answer, picked at random from the moves it knows. */
 function enemyChooseMove(s: GameState): MoveDef | null {
   const b = s.battle;
@@ -495,9 +594,11 @@ function enemySide(s: GameState, move: MoveDef): TurnSide | null {
 /** Your monster went down: send out the next one, or rest the whole party. */
 function handleFaint(s: GameState, side: TurnSide): void {
   const b = s.battle;
+  if (b.activeUid === side.mon.uid) b.activeUid = null;
   pushBattleLog(b, `${entry(side.species).name} fainted!`, 'danger');
   const next = battleLead(s);
   if (next) {
+    b.activeUid = next.uid;
     const nextMon = s.mons.find((m) => m.uid === next.uid);
     if (nextMon) pushBattleLog(b, `Go, ${entry(nextMon.species).name}!`, 'info');
   } else {
@@ -534,7 +635,7 @@ export function useMove(s: GameState, monUid: string, moveId: string): { ok: boo
   if (!lead || lead.uid !== monUid) return { ok: false, text: 'That monster cannot act right now.' };
   const mon = s.mons.find((m) => m.uid === monUid);
   if (!mon) return { ok: false, text: 'That monster cannot act right now.' };
-  const move = movesFor(mon.species, mon.level).find((m) => m.id === moveId);
+  const move = movesForMon(mon).find((m) => m.id === moveId);
   if (!move) return { ok: false, text: `${entry(mon.species).name} does not know that move.` };
 
   b.turn += 1;
@@ -571,8 +672,10 @@ function catchTurn(s: GameState): void {
   if (!enemyMove) return;
   b.turn += 1;
   const theirs = enemySide(s, enemyMove)!;
-  applyAttack(s, theirs, playerSide(s, mon, movesFor(mon.species, mon.level)[0], lead));
-  if (lead.hp <= 0) handleFaint(s, playerSide(s, mon, movesFor(mon.species, mon.level)[0], lead));
+  const responseMove = movesForMon(mon)[0];
+  if (!responseMove) return;
+  applyAttack(s, theirs, playerSide(s, mon, responseMove, lead));
+  if (lead.hp <= 0) handleFaint(s, playerSide(s, mon, responseMove, lead));
 }
 
 /**
@@ -600,6 +703,9 @@ function advanceBattle(s: GameState, dt: number): void {
       b.enemy = null;
       b.enemySpec = null;
       b.progress = 0;
+      b.cleared = 0;
+      b.biomesPassed = 0;
+      b.activeUid = b.players.find((p) => p.hp > 0)?.uid ?? b.team[0] ?? null;
       b.turn = 0;
       b.timer = ENCOUNTER_DELAY;
     }
@@ -614,21 +720,22 @@ function advanceBattle(s: GameState, dt: number): void {
 function rotateBiome(s: GameState): void {
   const b = s.battle;
   const current = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
-  const tier = rollBiomeTier(b.cleared, current.tier);
-  const next = randomBiomeOfTier(tier, b.biomeId);
-  b.tier = tier;
+  b.biomesPassed += 1;
+  const special = BIOMES.filter((x) => x.special && x.id !== b.biomeId);
+  const useSpecial = b.biomesPassed >= SPECIAL_BIOME_AFTER && chance(SPECIAL_BIOME_CHANCE) && special.length > 0;
+  const next = useSpecial ? pick(special) : randomBiomeOfTier(1, b.biomeId);
+  b.tier = next.tier;
   b.biomeId = next.id;
   b.progress = 0;
   b.rotateAt = rndInt(8, 14);
-  const climbed = tier > current.tier;
   pushBattleLog(
     b,
-    climbed
-      ? `The trail climbs — you come to ${next.name} (${tierOf(next).name}).`
-      : `You wander on into ${next.name}.`,
+    next.special
+      ? `A special route appears — ${next.name}!`
+      : `You pass into ${next.name}. The wild level band rises with the expedition.`,
     'info',
   );
-  log(s, `🧭 Battle area: ${next.name} (${tierOf(next).name})`, 'info');
+  log(s, next.special ? `✨ Special biome: ${next.name}` : `🧭 Next biome: ${next.name}`, 'info');
 }
 
 export function tryCatch(s: GameState, ballId: string): { ok: boolean; text: string } {
@@ -675,6 +782,70 @@ export function tryCatch(s: GameState, ballId: string): { ok: boolean; text: str
   return { ok: false, text: 'It broke free!' };
 }
 
+// --------------------------------------------------------- habitat income ---
+function habitatRestSeconds(s: GameState): number {
+  return awakeSeconds(s) * 0.5;
+}
+
+/**
+ * Add habitat income to each biome's own purse. This is intentionally a small
+ * deterministic timeline rather than `ppm * dt`: it walks awake and resting
+ * periods, so live ticks and a twelve-hour offline catch-up agree about when
+ * a Pokémon stopped working.
+ */
+function accrueHabitatIncome(s: GameState, dt: number, now = Date.now()): void {
+  if (dt <= 0) return;
+  const stamina = awakeSeconds(s);
+  for (const mon of s.mons) {
+    if (!mon.habitatId) continue;
+    const habitat = s.habitats.find((h) => h.id === mon.habitatId);
+    if (!habitat) continue;
+    let left = dt;
+    let elapsed = 0;
+    let rest = Math.max(0, mon.restRemaining ?? 0);
+    if (mon.energy <= 0 && rest <= 0) rest = habitatRestSeconds(s);
+
+    while (left > 0.000001) {
+      if (mon.energy > 0) {
+        const drain = mon.heldItem === 'macho-brace' ? 1.25 : mon.heldItem === 'power-anklet' ? 1.4 : 1;
+        const span = Math.min(left, mon.energy / drain);
+        const multiplier = activeBoostMultiplier(s, now + elapsed * 1000);
+        const gain = monOutputWithHabitat(s, mon) * span / 60 * multiplier;
+        habitat.pendingCoins = (habitat.pendingCoins ?? 0) + gain;
+        s.stats.coinsEarned += gain;
+        mon.energy = Math.max(0, mon.energy - span * drain);
+        left -= span;
+        elapsed += span;
+        if (mon.energy <= 0) {
+          mon.energy = 0;
+          rest = habitatRestSeconds(s);
+        }
+      } else {
+        if (rest <= 0) {
+          mon.energy = stamina;
+          mon.restRemaining = 0;
+          continue;
+        }
+        const span = Math.min(left, rest);
+        const multiplier = activeBoostMultiplier(s, now + elapsed * 1000);
+        // energy 0 makes monOutputWithHabitat apply the intended 30% sleepy rate
+        const gain = monOutputWithHabitat(s, mon) * span / 60 * multiplier;
+        habitat.pendingCoins = (habitat.pendingCoins ?? 0) + gain;
+        s.stats.coinsEarned += gain;
+        rest -= span;
+        mon.restRemaining = rest;
+        left -= span;
+        elapsed += span;
+        if (rest <= 0) {
+          mon.restRemaining = 0;
+          mon.energy = stamina;
+        }
+      }
+    }
+    mon.happiness = clamp(mon.happiness + dt * 0.007 * happinessRate(s), 0, 100);
+  }
+}
+
 // ------------------------------------------------------------------- tick ---
 export function simulate(state: GameState, dt: number, opts: { offline?: boolean } = {}): GameState {
   const s = state;
@@ -685,48 +856,36 @@ export function simulate(state: GameState, dt: number, opts: { offline?: boolean
 
   // --- income -------------------------------------------------------------
   const ppm = productionPerMinute(s);
-  const boostMult = activeBoostMultiplier(s, now);
-  const gain = (ppm / 60) * dt * boostMult;
-  s.coins += gain;
-  s.stats.coinsEarned += gain;
+  accrueHabitatIncome(s, dt, now);
   if (ppm > s.stats.bestCoinsPerMin) s.stats.bestCoinsPerMin = ppm;
 
-  // --- energy, happiness ---------------------------------------------------
-  const stamina = awakeSeconds(s);
-  for (const m of s.mons) {
-    if (!m.habitatId) continue;
-    if (m.energy > 0) m.energy = Math.max(0, m.energy - dt);
-    else if (chance(dt / 2400)) {
-      m.energy = stamina * 0.5; // monsters eventually wake on their own
-    }
-    const drain = m.heldItem === 'macho-brace' ? 1.25 : m.heldItem === 'power-anklet' ? 1.4 : 1;
-    if (drain > 1 && m.energy > 0) m.energy = Math.max(0, m.energy - dt * (drain - 1));
-    m.happiness = clamp(m.happiness + dt * 0.007 * happinessRate(s), 0, 100);
-  }
-
   // --- incubation ----------------------------------------------------------
-  for (const h of [...s.hatches]) {
-    const inc = INCUBATOR_BY_ID[h.incubatorId];
-    h.remaining -= dt * (inc?.speed ?? 1) * incubationMultiplier(s);
+  // Completion is deliberately separate from hatching. A zero-time hatch
+  // keeps occupying its incubator until the player claims it, which also means
+  // a full monster storage cannot silently destroy a finished egg.
+  for (const h of s.hatches) {
     if (h.remaining <= 0) {
-      hatchEgg(s, h.tier, h.shiny, h.parents, h.event);
-      s.hatches = s.hatches.filter((x) => x.id !== h.id);
+      h.remaining = 0;
+      continue;
     }
+    const inc = INCUBATOR_BY_ID[h.incubatorId];
+    h.remaining = Math.max(0, h.remaining - dt * (inc?.speed ?? 1) * incubationMultiplier(s));
   }
 
   // --- breeding ------------------------------------------------------------
   for (const pair of [...s.breedingPairs]) {
     pair.remaining -= dt;
     if (pair.remaining <= 0) {
-      const a = s.mons.find((m) => m.uid === pair.a);
-      const bMon = s.mons.find((m) => m.uid === pair.b);
+      const a = s.mons.find((m) => m.uid === (pair.female ?? pair.a));
+      const bMon = s.mons.find((m) => m.uid === (pair.male ?? pair.b));
       if (a && bMon && s.eggs.length < eggStorageCap(s)) {
         const tier = eggTierFromParents(a, bMon);
-        s.eggs.push({ id: uid('e'), tier });
+        const inheritance = breedingInheritance(a, bMon);
+        s.eggs.push({ id: uid('e'), tier, eggTierId: EGG_TIERS.find((product) => product.rarity === tier)?.id, shiny: chance(1 / 700), inheritance });
         a.breedReadyAt = now + 1000 * 60 * 20;
         bMon.breedReadyAt = now + 1000 * 60 * 20;
         s.stats.bred += 1;
-        log(s, `💞 ${entry(a.species).name} & ${entry(bMon.species).name} produced an egg.`, 'good');
+        log(s, `💞 ${entry(a.species).name} & ${entry(bMon.species).name} produced a ${entry(a.species).name} egg with ${inheritance.inheritedStats.length} male IVs.`, 'good');
       } else if (s.eggs.length >= eggStorageCap(s)) {
         log(s, 'Egg storage is full — breeding paused.', 'bad');
         continue;
@@ -752,7 +911,7 @@ export function simulate(state: GameState, dt: number, opts: { offline?: boolean
 }
 
 export function activeBoostMultiplier(s: GameState, now = Date.now()): number {
-  return s.boosts.reduce((m, b) => Math.max(m, b.mult), 1);
+  return s.boosts.reduce((m, b) => b.until > now ? Math.max(m, b.mult) : m, 1);
 }
 
 function eggTierFromParents(a: Mon, b: Mon): Rarity {
@@ -765,54 +924,16 @@ function eggTierFromParents(a: Mon, b: Mon): Rarity {
 }
 
 export function fastForward(state: GameState, seconds: number): void {
-  let remaining = Math.min(seconds, OFFLINE_CAP_SECONDS);
+  let remaining = Math.min(Math.max(0, seconds), OFFLINE_CAP_SECONDS);
   const step = 10;
   let guard = 0;
   while (remaining > 0 && guard++ < 5000) {
     const dt = Math.min(step, remaining);
-    simulateOfflineStep(state, dt);
+    // Use the same habitat timeline as live ticks, but do not run battles while
+    // the player is away. Coins remain in habitat purses until collected.
+    simulate(state, dt, { offline: true });
     remaining -= dt;
   }
-}
-
-function simulateOfflineStep(s: GameState, dt: number): void {
-  const ppm = productionPerMinute(s);
-  const gain = (ppm / 60) * dt;
-  s.coins += gain;
-  s.stats.coinsEarned += gain;
-  const stamina = awakeSeconds(s);
-  for (const m of s.mons) {
-    if (!m.habitatId) continue;
-    if (m.energy > 0) m.energy = Math.max(0, m.energy - dt);
-    else m.energy = stamina * 0.5;
-    m.happiness = clamp(m.happiness + dt * 0.007 * happinessRate(s), 0, 100);
-  }
-  for (const h of [...s.hatches]) {
-    const inc = INCUBATOR_BY_ID[h.incubatorId];
-    h.remaining -= dt * (inc?.speed ?? 1) * incubationMultiplier(s);
-    if (h.remaining <= 0) {
-      hatchEgg(s, h.tier, h.shiny, h.parents, h.event);
-      s.hatches = s.hatches.filter((x) => x.id !== h.id);
-    }
-  }
-  const now = Date.now();
-  for (const pair of [...s.breedingPairs]) {
-    pair.remaining -= dt;
-    if (pair.remaining <= 0) {
-      const a = s.mons.find((m) => m.uid === pair.a);
-      const bMon = s.mons.find((m) => m.uid === pair.b);
-      if (a && bMon) {
-        s.eggs.push({ id: uid('e'), tier: eggTierFromParents(a, bMon) });
-        a.breedReadyAt = now + 1000 * 60 * 20;
-        bMon.breedReadyAt = now + 1000 * 60 * 20;
-        s.stats.bred += 1;
-      }
-      s.breedingPairs = s.breedingPairs.filter((x) => x.id !== pair.id);
-    }
-  }
-  // slow, steady reward trickle while away
-  s.stats.battlesWon += Math.floor(dt / 900);
-  s.coins += (dt / 900) * 40;
 }
 
 export {

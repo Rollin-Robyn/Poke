@@ -17,34 +17,31 @@ Ten screens, wired together so each one feeds the next.
 
 | Screen | What it does |
 | --- | --- |
-| **Dashboard** | Every currency (coins, diamonds, rebirth coins, event tokens), coins/hour and coins/day, the habitat widget, the hourly supply crate, the **coin exchange** (coins → diamonds) and the activity log. |
-| **My Habitats** | The habitats you own as instances, with the monsters inside them and their income. Monotype habitats are cheap; multitype habitats hold two or three types and cost a fortune. Both get more expensive the more of that class you own, and you can own duplicates. A fresh habitat holds **one** monster; every capacity upgrade adds exactly **+1**. |
-| **Eggs** | Stockpile with an upgradable cap, five incubator tiers (faster + more slots), five egg tiers, a buy-egg section and the seasonal **festival egg**. Hatching always gives a **level 1** monster — the reward is rarity, not levels. |
-| **My Pokémon** | The full roster as cards: art, types, nature, production/min, happiness and sleep timer. Sort by level / output / rarity / dex number / recent. Hold items, feed berries, evolve, release. |
+| **Dashboard** | Every currency (coins, diamonds, rebirth coins, event tokens), coins/hour and coins/day, the habitat widget, manually collectible pending habitat cash, the **expensive coin exchange** (coins → diamonds) and the activity log. |
+| **My Habitats** | The habitats you own as instances, with the monsters inside them and their income. Monotype habitats are cheap; multitype habitats hold two or three types and cost a fortune. Both get more expensive the more of that class you own, and you can own duplicates. A fresh habitat holds **one** monster; capacity upgrades add room independently, while a separate premium rarity track raises the rarity ceiling. |
+| **Eggs** | Stockpile with a **3-slot starting cap** and an upgradable cap, five incubator tiers (faster + more slots), multiple purchasable egg tiers from Field through Ascendant, a buy-egg section and the seasonal **festival egg**. Incubation completes at **level 1** and leaves the egg ready in its slot until you manually click **Hatch** — the reward is rarity, not levels. |
+| **My Pokémon** | The full roster as cards: art, types, nature, production/min, happiness and sleep timer. Search by name and filter by type, rarity, location and shiny status; sort by level / output / rarity / dex number / recent. Hold items, feed berries, evolve, release. |
 | **Pokédex** | All 649 species. Uncaught species show a `?`. Detail view with base stats, breeding data, evolutions, the **moves by level** learnset, and whether this species' gallery frames are open. |
-| **Gallery** | The artwork collection, and it is **empty until you add art**. One frame per picture found in `public/gallery/`; a frame opens when you catch that species, and the shiny frame opens only when you catch one **shiny**. Artwork is not the battle sprites, and nothing is bought with diamonds. |
-| **Breeding** | Zones, an active pair display and parent selection. One male + one female, matching type (or one Normal) and a shared egg group. Egg rarity follows the parents; they rest afterwards. |
-| **Battle** | Turn-based and played **by hand**. You pick a move, then both monsters act once, ordered by move priority, then speed, then held items (Choice Scarf, Quick Claw, Macho Brace) — with a speed roll, so a close call can go either way. A team of **six**; every monster knows the four moves it learned most recently from its species' learnset, so moves grow with level. Twelve areas in four tiers: rarer ground holds rarer monsters, clearing encounters pushes the level range up and opens the chance of a rarer tier, and the trail picks a random area inside that tier so the same rarity keeps looking different. Catching with 14 ball types — a throw costs the turn — and trainer battles every 25th win. |
+| **Gallery** | Individual pages for every caught species plus optional artwork frames. One frame per picture found in `public/gallery/`; a caught species page opens immediately, and a shiny frame opens only when you catch one **shiny**. Artwork is not the battle sprites, and nothing is bought with diamonds. |
+| **Breeding** | Zones, an active pair display and parent selection. One male + one female sharing an egg group. The female determines the offspring species; selected male IVs, inherited egg moves and TMs carry over, with Destiny Knot selecting five male IVs. Parents rest afterwards. |
+| **Battle** | Turn-based and played **by hand**. You pick a move, then both monsters act once, ordered by move priority, then speed, then held items (Choice Scarf, Quick Claw, Macho Brace) — with a speed roll, so a close call can go either way. A team of **six**; every monster knows the four moves it learned most recently from its species' learnset, so moves grow with level. You can manually switch mid-fight as your turn; the wild move selected before the switch still targets the deployed monster. Ordinary biomes share one Lv.2–8 tier and rule set, wild levels rise by +4 per biome passed in the current run (capped at +92), route types are weighted rather than exclusive, and only special routes can appear as a distinct tier after three passed biomes. The next biome is entered randomly after the encounter threshold; there is no direct travel picker. Catching with 14 ball types — a throw costs the turn — and trainer battles every 25th win. |
 | **Events** | Four seasonal events driven by the real calendar, each unlocking forms that exist in your repo and paying out **epic-tier** rewards for event tokens. |
 | **Casino** | Six minigames, coins or diamonds, and the stake is an exact amount you type — never forced all-in. |
-| **Resort** | Diamond upgrades, achievements (they pay diamonds), the bag, **rebirth** and hard reset. |
+| **Resort** | Diamond upgrades, manually claimable achievements (mostly coins, with small diamond rewards reserved for difficult milestones), the bag, **rebirth** and hard reset. |
 | **Settings** | ⚙️ in the header: game options, export/import a save, and a reset that really clears the stored save. |
 
 **Currencies:** coins (the main engine), diamonds (the **coin exchange**, achievements, rare
 battle drops, casino, rebirth), rebirth coins (+5% permanent coins each) and event tokens
 (paid out of **encounters while a seasonal event is running**).
 
-**There is no daily delivery.** The hourly supply crate pays coins; diamonds are bought with
-a large pile of coins at the exchange on the Dashboard, and every trade costs more than the
-one before it (25 K, 36 K, 52 K, …), so a fat bank buys a handful of gems rather than the
-whole shop. Event tickets only drop while a festival is running.
+**There are no hourly crates.** Habitat output accumulates as fractional pending cash in the habitat that earned it; collect it manually from Habitats or the Dashboard. Offline progress uses the same awake/rest timeline as live play and is capped at 12 hours. Diamonds are bought with a large pile of collected coins at the exchange (250 K for the first diamond, then ×1.85 each trade), so a fat bank buys a handful of gems rather than the whole shop. Event tickets only drop while a festival is running.
 
-**The gallery is artwork, not sprites.** `public/gallery/` ships empty, so the Gallery screen
-starts with nothing to show — the frames are there, the pictures are not. Drop
-`bulbasaur.png` (or `001.png`) in that folder, run `npm run gallery`, and a frame appears for
-it. A frame opens when you **catch that species**; a `-shiny` file gets its own frame that
-opens only on a **shiny catch**, so the two are collected separately. The record lives in the
-Pokédex, so releasing the monster or rebirthing never shuts a frame again.
+**The gallery is artwork, not sprites.** `public/gallery/` ships empty, so caught species
+still show individual pages with their battle sprite while optional artwork is absent. Drop
+`bulbasaur.png` (or `001.png`) in that folder, run `npm run gallery`, and an artwork frame
+appears for it. A frame opens when you **catch that species**; a `-shiny` file gets its own
+frame that opens only on a **shiny catch**, so the two are collected separately. The record
+lives in the Pokédex, so releasing the monster or rebirthing never shuts a page or frame.
 
 **Diamonds are the premium track.** Radiant and mythic eggs are bought with diamonds only,
 and so are the diamond upgrades and the alternate forms. Gallery frames are **not** sold —
@@ -53,17 +50,15 @@ they open by catching the monster in the picture.
 **Money comes from monsters, not multipliers.** There is no "+% coins" upgrade anywhere.
 Income is a product of how many monsters you house (habitat capacity) and how rare they are
 (common → legendary is a 28× output ladder), multiplied only by the permanent rebirth bonus.
-Capacity upgrades therefore do double duty: **each one adds +1 slot and widens the rarest
-tier the habitat will accept** — a new habitat takes common and uncommon monsters, and it
-takes three upgrades before it will house a legendary.
+Capacity and rarity are independent upgrade tracks: capacity is moderately priced and escalates per habitat, while rarity is deliberately expensive. A new habitat takes common and uncommon monsters, and three rarity upgrades before it will house a legendary.
 
-**🏠 Habitat capacity:**
-| Upgrade level | Slots | Accepts up to |
+**🏠 Habitat tracks:**
+| Upgrade level | Capacity | Rarity ceiling |
 | --- | --- | --- |
-| 0 | 1 | uncommon |
-| 1 | 2 | rare |
-| 2 | 3 | epic |
-| 3+ | 4+ | legendary |
+| 0 | 1 slot | uncommon |
+| 1 | 2 slots | rare |
+| 2 | 3 slots | epic |
+| 3+ | 4+ slots | legendary |
 
 **Sleep system:** monsters work for a while, then get sleepy and drop to 30% output until a
 berry wakes them — this is what makes berries, happiness and the stamina upgrades matter.
@@ -76,14 +71,14 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 
 ## Rules that are enforced (and tested)
 
-`npm run checks` asserts the design rules against the real game logic — 159 checks:
+`npm run checks` asserts the design rules against the real game logic — 183 checks:
 
 - the starter flow hands over **only** the chosen starter, in a **monotype habitat of its own
-  type**, level 1, with no free monsters and no extra habitats;
-- hatched monsters are always level 1, and only the egg *rarity* changes;
-- radiant (12 💎) and mythic (60 💎) eggs are diamond-only;
+  type**, **level 5**, with no free monsters and no extra habitats;
+- eggs complete at level 1 and remain in the incubator until a manual Hatch action; egg rarity changes species odds only — it does not add IV, battle-stat or other stat bonuses;
+- radiant (15 💎), prismatic (45 💎), mythic (120 💎) and ascendant (300 💎) eggs are diamond-only;
 - multitype habitats cost >100× a monotype one, prices creep with each purchase, duplicates
-  are allowed and capacity is exactly `1 + upgrades`;
+  are allowed; each habitat’s capacity is exactly `1 + capacity upgrades`, independent of rarity upgrades;
 - a habitat refuses a monster that does not match its types, and refuses a 2nd monster when
   it is full;
 - the battle team is capped at six, and no two balls do the same thing;
@@ -96,18 +91,21 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 - a monster knows the four moves it learned most recently from a per-species learnset
   (`npm run data` builds it, seeded so it is reproducible) — level 1 monsters start with
   one or two weak moves, and no move appears twice;
-- areas come in four tiers with several areas each: rarer tiers hold rarer monsters, the
-  trail picks a random area inside a tier, and clearing encounters is the only thing that
-  raises the level range or opens a rarer tier;
-- **the daily delivery is gone** — the coin exchange is the steady diamond source and each
-  trade is dearer than the last, and event tokens only come out of encounters during a
-  festival;
+- ordinary areas share one tier, rarity table and level band, with several route types in each
+  weighted but never exclusive; each passed biome raises wild levels for the current run,
+  and after the configured threshold a special route can appear randomly as the only distinct
+  tier with rarer/event-weighted spawns; direct biome travel is unavailable;
+- **hourly crates are gone** — habitat income waits in per-habitat pending purses, manual collection is required, offline income respects energy/rest, and the coin exchange is expensive and escalates each trade;
+- capacity and rarity habitat upgrades are separate, and egg storage starts at three slots;
+- the Pokédex mirrors roster search/type/rarity/location/shiny filters; unassigned monsters show base coins per minute;
+- achievements become ready when complete but pay only after a manual, idempotent claim;
+- caught species unlock individual gallery pages, while `npm run gallery` is a separate artwork-import tool;
 - **the reducer is pure** — replaying a dispatch lands in exactly the same place, so one
   starter pick cannot hand out two monsters (React runs reducers twice in StrictMode);
 - **no event reward is above epic** — legendary and mythical monsters only come out of
   event eggs, mythic eggs and the deepest biomes;
 - casino stakes are exact (an oversized stake is refused rather than clamped);
-- every habitat's rarity ceiling matches its capacity upgrades, and the action layer refuses
+- every habitat's rarity ceiling follows its independent rarity upgrades, and the action layer refuses
   a monster that is too rare (explaining why) as well as one of the wrong type;
 - there is no coin-multiplier upgrade left in either shop, and the only global multiplier is
   the rebirth bonus;
@@ -115,9 +113,7 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 - an exported save can be imported again (base64 or raw JSON) and junk text is rejected;
 - a rebirth keeps the Pokédex, achievements, gallery, unlocked forms, event tokens, diamonds
   and rebirth coins, and resets the reserve itself;
-- the gallery ships with **no artwork**, and a frame opens by catching that species — the
-  shiny frame needs a shiny catch of its own, stays open after the monster is released, and
-  no frame can be bought with diamonds;
+- caught species get individual gallery pages even when artwork is not installed; imported frames open by catching that species — the shiny frame needs a shiny catch of its own, stays open after the monster is released, and no frame can be bought with diamonds;
 - a master ball never fails, which is what the pouch promises;
 - version-1 saves (`{ habId, slots }`) migrate onto the new habitat instances with their
   capacity preserved.
@@ -184,7 +180,7 @@ npm run build      typecheck + production build into dist/
 npm run typecheck  tsc --noEmit
 npm run data       regenerate dex.json / items.json / gallery.json
 npm run gallery    rescan public/gallery and rebuild the manifest
-npm run checks     assert the design rules (159 checks)
+npm run checks     assert the design rules
 npm run smoke      render every screen headlessly on a played save *and* a new one
 npm run legacy     load a pre-rework save and check it migrates cleanly
 npm run verify     typecheck + checks + smoke + build
@@ -215,9 +211,10 @@ only thing that levels a team up. The "pure idle" run, which buys nothing and cl
 nothing, is still sitting on its 500 starting coins after seven days.
 
 A fight is short: three to five turns is typical, because damage now follows the real
-formula and scales with level. Clearing encounters pushes wild levels up (one level per
-five encounters, capped at +20) and opens the rarer tiers; storage fills up at 400
-monsters around day four, so the mid-game is about quality and habitat slots, not hoarding.
+formula and scales with level. Passing a biome pushes the shared wild level band up by
+four levels (capped at +92 for the run); a full-party wipe resets that expedition progress.
+After three passed biomes, random rotations can also land on a special route; ordinary routes never become separate tiers. Storage fills up at
+400 monsters around day four, so the mid-game is about quality and habitat slots, not hoarding.
 
 Rebirth curve: 5 M lifetime → +2 coins, 100 M → +12, 1 B → +44, 1 T → +1995.
 
@@ -232,9 +229,9 @@ Offline progress is capped at 12 hours and reported when you come back.
 
 ## Ideas for the next pass
 
-- **Gallery art** — the frames are wired and waiting. Drop a picture into `public/gallery/`
-  as `bulbasaur.png` (or `001.png`) and `bulbasaur-shiny.png`, run `npm run gallery`, and it
-  appears behind a frame that opens on the catch. `public/gallery/README.md` has the naming.
+- **Gallery art** — the gallery pages are wired. Drop a picture into `public/gallery/` as
+  `bulbasaur.png` (or `001.png`) and `bulbasaur-shiny.png`, then run the separate importer
+  `npm run gallery`; `public/gallery/README.md` has the naming and validation rules.
 - **Items** — 661 item sprites are wired up as data but many have no effect yet; adding more
   is data-only work in `src/game/content.ts` (`ITEMS`).
 - **Form unlocks** — 104 forms exist; the event and shop ones are obtainable, and a "form

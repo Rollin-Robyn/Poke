@@ -5,25 +5,39 @@ import { DEX, DEX_IDS, RARITIES, entry, fmt, learnsetOf, spriteUrl, statsAt } fr
 import { NATURES } from '../../game/natures';
 
 type Filter = 'all' | 'caught' | 'seen' | 'missing' | 'shiny';
+type LocationFilter = 'all' | 'housed' | 'storage';
 
 export function Pokedex() {
   const { state } = useGame();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [rarityFilter, setRarityFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>('all');
   const [open, setOpen] = useState<string | null>(null);
 
   const caught = new Set(state.dexCaught);
   const seen = new Set(state.dexSeen);
+  const shiny = new Set(state.dexShiny);
+  const types = useMemo(() => [...new Set(DEX_IDS.flatMap((id) => DEX[id].types))].sort(), []);
 
   const list = useMemo(() => {
     return DEX_IDS.filter((id) => {
-      if (query && !DEX[id].name.toLowerCase().includes(query.toLowerCase())) return false;
-      if (filter === 'caught') return caught.has(id);
-      if (filter === 'seen') return seen.has(id) && !caught.has(id);
-      if (filter === 'missing') return !caught.has(id);
+      const e = DEX[id];
+      if (query.trim() && !e.name.toLowerCase().includes(query.trim().toLowerCase())) return false;
+      if (typeFilter !== 'all' && !e.types.includes(typeFilter)) return false;
+      if (rarityFilter !== 'all' && e.rarity !== rarityFilter) return false;
+      if (filter === 'caught' && !caught.has(id)) return false;
+      if (filter === 'seen' && (!seen.has(id) || caught.has(id))) return false;
+      if (filter === 'missing' && caught.has(id)) return false;
+      if (filter === 'shiny' && !shiny.has(id)) return false;
+      if (locationFilter !== 'all') {
+        const hasLocation = state.mons.some((m) => m.species === id && (locationFilter === 'housed' ? !!m.habitatId : !m.habitatId));
+        if (!hasLocation) return false;
+      }
       return true;
     });
-  }, [query, filter, state.dexCaught, state.dexSeen]);
+  }, [query, filter, typeFilter, rarityFilter, locationFilter, state.dexCaught, state.dexSeen, state.dexShiny, state.mons]);
 
   const e = open ? DEX[open] : null;
   const owned = open ? state.mons.filter((m) => m.species === open) : [];
@@ -34,29 +48,48 @@ export function Pokedex() {
       <Panel
         title={`Pokédex — ${caught.size} / ${DEX_IDS.length} caught`}
         right={
-          <div className="row" style={{ gap: 6 }}>
-            {(['all', 'caught', 'seen', 'missing'] as Filter[]).map((f) => (
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {(['all', 'caught', 'seen', 'missing', 'shiny'] as Filter[]).map((f) => (
               <button key={f} className={`btn xs ${filter === f ? 'primary' : 'ghost'}`} onClick={() => setFilter(f)}>
-                {f}
+                {f === 'shiny' ? '✨ shiny' : f}
               </button>
             ))}
           </div>
         }
       >
-        <div className="row between">
-          <div className="row" style={{ gap: 14 }}>
+        <div className="row between" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <div className="row" style={{ gap: 14, flexWrap: 'wrap' }}>
             <span className="small muted">👁 seen {seen.size}</span>
             <span className="small muted">✅ caught {caught.size}</span>
             <span className="small muted">✨ shiny registered {state.dexShiny.length}</span>
             <span className="small muted">🎭 forms {state.formsUnlocked.length}</span>
           </div>
-          <input
-            type="text"
-            placeholder="Search by name…"
-            value={query}
-            onChange={(ev) => setQuery(ev.target.value)}
-            style={{ width: 200 }}
-          />
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <input
+              type="text"
+              placeholder="Search Pokémon…"
+              value={query}
+              onChange={(ev) => setQuery(ev.target.value)}
+              style={{ width: 170 }}
+            />
+            <select value={typeFilter} onChange={(ev) => setTypeFilter(ev.target.value)} aria-label="Filter Pokédex by type">
+              <option value="all">All types</option>
+              {types.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+            <select value={rarityFilter} onChange={(ev) => setRarityFilter(ev.target.value)} aria-label="Filter Pokédex by rarity">
+              <option value="all">All rarities</option>
+              {RARITIES.map((rarity) => <option key={rarity} value={rarity}>{rarity}</option>)}
+            </select>
+            <select value={locationFilter} onChange={(ev) => setLocationFilter(ev.target.value as LocationFilter)} aria-label="Filter Pokédex by location">
+              <option value="all">All locations</option>
+              <option value="housed">Housed</option>
+              <option value="storage">Storage</option>
+            </select>
+          </div>
+        </div>
+        <div className="tiny dim" style={{ marginTop: 8 }}>
+          Location filters use the species you currently own; missing species stay visible with All locations.
+          Showing {list.length} species.
         </div>
       </Panel>
 

@@ -56,7 +56,6 @@ function richState(): GameState {
   s.stats.battlesWon = 120;
   s.stats.hatched = 12;
   s.stats.bred = 2;
-  s.crates = { hourly: Date.now() - 2 * 60 * 60 * 1000, daily: Date.now() - 26 * 60 * 60 * 1000 };
 
   for (const id of ['bulbasaur', 'charmander', 'squirtle', 'pikachu', 'gyarados', 'mewtwo', 'eevee']) {
     s.mons.push(makeMon(id, 12));
@@ -95,7 +94,7 @@ function richState(): GameState {
   s.shopUnlocked = ['inc:basic', 'inc:warm'];
   s.hatches = [
     { id: 'h1', eggId: 'x', tier: 'common', shiny: false, incubatorId: 'basic', remaining: 120, total: 600 },
-    { id: 'h2', eggId: 'y', tier: 'epic', shiny: true, incubatorId: 'warm', remaining: 900, total: 3600 },
+    { id: 'h2', eggId: 'y', tier: 'epic', shiny: true, incubatorId: 'warm', remaining: 0, total: 3600 },
   ];
   s.itemBag = { 'oran-berry': 12, 'lucky-egg': 2, 'amulet-coin': 1, 'fire-stone': 3 };
   s.balls = { 'poke-ball': 20, 'great-ball': 5, 'ultra-ball': 1, 'dusk-ball': 2 };

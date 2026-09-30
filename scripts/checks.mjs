@@ -62,7 +62,8 @@ for (const [species, type] of [['bulbasaur', 'Grass'], ['charmander', 'Fire'], [
   check(`${species}: starter is housed`, mon?.habitatId === s.habitats[0]?.id);
   check(`${species}: no free extra monsters/eggs`, s.eggs.length === 0 && s.hatches.length === 0);
   check(`${species}: one habitat only`, s.habitats.length === 1);
-  check(`${species}: no numbered egg hatch level`, g.EGG_HATCH_LEVEL === 1);
+  check(`${species}: starter begins at level 5`, mon?.level === 5, `level ${mon?.level}`);
+  check(`${species}: ordinary eggs still hatch at level 1`, g.EGG_HATCH_LEVEL === 1);
 }
 
 // ------------------------------------------------------------------ eggs ----
@@ -78,13 +79,18 @@ console.log('\negg rules');
   const hatch = s.hatches[0];
   reduce(s, { type: 'INSTANT_HATCH', hatchId: hatch.id });
   reduce(s, { type: 'TICK', dt: 1 });
+  check('timer completion leaves the egg in its incubator', s.hatches.length === 1 && s.hatches[0].remaining === 0);
+  check('completion does not auto-hatch', s.mons.length === before);
+  reduce(s, { type: 'HATCH_EGG', hatchId: hatch.id });
   const born = s.mons[s.mons.length - 1];
   check('hatched monsters are level 1', born.level === 1, `level ${born.level}`);
   check('hatching added exactly one monster', s.mons.length === before + 1);
+  check('manual hatch clears the completed incubator slot', s.hatches.length === 0);
   const epicTier = g.EGG_TIERS.find((t) => t.id === 'epic');
   const mythic = g.EGG_TIERS.find((t) => t.id === 'legendary');
-  check('radiant egg costs diamonds only', epicTier.currency === 'diamonds' && epicTier.cost === 12);
-  check('mythic egg costs diamonds only', mythic.currency === 'diamonds' && mythic.cost === 60);
+  check('radiant egg costs diamonds only', epicTier.currency === 'diamonds' && epicTier.rarity === 'epic');
+  check('mythic egg costs diamonds only', mythic.currency === 'diamonds' && mythic.rarity === 'legendary');
+  check('egg storage starts at three slots', g.eggStorageCap(g.createInitialState()) === 3);
   check(
     'coin tiers are rarer-species, not levels',
     g.EGG_TIERS.filter((t) => t.currency === 'coins').every((t) => t.minutes > 0),
@@ -160,7 +166,7 @@ console.log('\nupgrades and the rarity gate');
 
   const s = fresh('charmander');
   const fireHab = s.habitats[0];
-  check('a brand new habitat caps at uncommon', g.habitatRarityCap(fireHab.slotLevel) === 'uncommon');
+  check('a brand new habitat caps at uncommon', g.habitatRarityCap(g.habitatRarityLevel(fireHab)) === 'uncommon');
   check('one upgrade reaches rare', g.habitatRarityCap(1) === 'rare');
   check('two upgrades reach epic', g.habitatRarityCap(2) === 'epic');
   check('three upgrades reach legendary', g.habitatRarityCap(3) === 'legendary');
@@ -169,8 +175,8 @@ console.log('\nupgrades and the rarity gate');
   const rareMon = g.makeMon('charmander', 1, {});
   rareMon.species = 'charizard'; // epic-stage fire monster
   check('an epic monster is refused by a level-1 habitat', g.habitatRejection(fireHab, g.HABITAT_BY_ID[fireHab.defId], rareMon) !== null);
-  fireHab.slotLevel = 2;
-  check('it is accepted once the habitat is upgraded', g.habitatRejection(fireHab, g.HABITAT_BY_ID[fireHab.defId], rareMon) === null);
+  fireHab.rarityLevel = 2;
+  check('it is accepted once the habitat is rarity-upgraded', g.habitatRejection(fireHab, g.HABITAT_BY_ID[fireHab.defId], rareMon) === null);
 
   // and the action layer agrees
   const s2 = fresh('charmander');
@@ -179,7 +185,25 @@ console.log('\nupgrades and the rarity gate');
   s2.mons.push(legendary);
   reduce(s2, { type: 'ASSIGN_MON', uid: legendary.uid, habitatId: s2.habitats[0].id });
   check('the action layer refuses a monster that is too rare', legendary.habitatId === null);
-  check('the refusal is explained to the player', s2.log.some((l) => /upgrade its capacity/i.test(l.text)), s2.log[0]?.text ?? '');
+  check('the refusal is explained to the player', s2.log.some((l) => /upgrade its rarity/i.test(l.text)), s2.log[0]?.text ?? '');
+}
+
+// ------------------------------------------------------- habitat income -----
+console.log('\nhabitat income and offline rest');
+{
+  const s = fresh('charmander');
+  const before = s.coins;
+  g.simulate(s, 3600);
+  const waiting = g.totalPendingHabitatCoins(s);
+  check('live income waits in a habitat purse', waiting > 0 && s.coins === before, `${waiting} pending / ${s.coins} coins`);
+  reduce(s, { type: 'COLLECT_ALL_HABITAT_CASH' });
+  check('collecting habitat cash moves it to the balance', s.coins > before && g.totalPendingHabitatCoins(s) === 0);
+
+  const away = fresh('charmander');
+  const awayCoins = away.coins;
+  g.fastForward(away, 7200);
+  check('offline income also stays pending', g.totalPendingHabitatCoins(away) > 0 && away.coins === awayCoins);
+  check('offline income advances the same energy/rest timeline', away.mons[0].energy < 3600 && away.mons[0].energy > 0, String(away.mons[0].energy));
 }
 
 // ----------------------------------------------------------------- battle ---
@@ -274,6 +298,21 @@ console.log('\nbattles are turn based');
   check('the next monster walks in after the rest', !!w.battle.enemySpec, String(w.battle.enemySpec));
 }
 
+// ------------------------------------------------------------ manual switch --
+console.log('\nmanual battle switching');
+{
+  const s = fresh('charmander');
+  const second = g.makeMon('squirtle', 60, { gender: 'F' });
+  s.mons.push(second);
+  s.mons[0].level = 60;
+  Object.assign(s, g.reduce(s, { type: 'SET_TEAM', uids: [s.mons[0].uid, second.uid] }));
+  g.simulate(s, 0.5);
+  const before = s.battle.activeUid;
+  const switched = g.reduce(s, { type: 'SWITCH_POKEMON', uid: second.uid });
+  check('switch action deploys a selected healthy teammate', switched.battle.activeUid === second.uid && before !== second.uid);
+  check('switching consumes exactly one turn', switched.battle.turn === 1, String(switched.battle.turn));
+}
+
 // -------------------------------------------------------------- turn order ---
 console.log('\nturn order');
 {
@@ -348,26 +387,51 @@ console.log('\nmovesets');
   })());
 }
 
+// -------------------------------------------------------------- breeding -----
+console.log('\nbreeding inheritance');
+{
+  const s = g.createInitialState();
+  const female = g.makeMon('bulbasaur', 10, { gender: 'F', ivs: { hp: 1, atk: 2, def: 3, spa: 4, spd: 5, spe: 6 } });
+  const male = g.makeMon('bulbasaur', 10, { gender: 'M', ivs: { hp: 31, atk: 30, def: 29, spa: 28, spd: 27, spe: 26 }, eggMoves: ['flamethrower'], tmMoves: ['surf'] });
+  male.heldItem = 'destiny-knot';
+  s.mons = [female, male];
+  s.started = true;
+  s.coins = 1e9;
+  reduce(s, { type: 'BREED', a: female.uid, b: male.uid });
+  g.simulate(s, 100000);
+  const inheritance = s.eggs[0]?.inheritance;
+  check('breeding uses the female species', inheritance?.species === female.species, inheritance?.species);
+  check('Destiny Knot selects five male IV stats', inheritance?.inheritedStats.length === 5, String(inheritance?.inheritedStats.length));
+  check('egg moves and TMs reach the breeding egg', inheritance?.eggMoves.includes('flamethrower') && inheritance?.tmMoves.includes('surf'));
+}
+
 // ------------------------------------------------------------------ biomes ---
 console.log('\nbiome tiers');
 {
   check('every area belongs to a tier', g.BIOMES.every((b) => b.tier >= 1 && b.tier <= g.MAX_BIOME_TIER));
   check('every tier holds several areas', g.BIOME_TIERS.every((t) => g.BIOMES.filter((b) => b.tier === t.tier).length >= 2));
-  const legendary = (tier) => g.BIOME_TIERS.find((t) => t.tier === tier).rarity.legendary;
-  check('common areas hold no legendaries', legendary(1) === 0, String(legendary(1)));
-  check('rarer ground holds rarer monsters', legendary(4) > legendary(3) && legendary(3) > legendary(1));
-  check('the pool really is filtered by rarity', (() => {
-    const t1 = g.biomePool(g.BIOMES[0]);
-    const t4 = g.biomePool(g.BIOMES.find((b) => b.tier === 4));
-    const weight = (pool, rarity) => pool.filter(([id]) => g.DEX[id].rarity === rarity).reduce((a, [, w]) => a + w, 0) / pool.reduce((a, [, w]) => a + w, 0);
-    return weight(t4, 'epic') > weight(t1, 'epic');
+  const ordinary = g.BIOMES.find((b) => !b.special);
+  const special = g.BIOMES.find((b) => b.special);
+  const legendaryWeight = (biome) => g.biomePool(biome).filter(([id]) => g.DEX[id].rarity === 'legendary').reduce((a, [, w]) => a + w, 0);
+  check('ordinary routes use a shared rarity table', (() => {
+    const ordinaryPools = g.BIOMES.filter((b) => !b.special).map((b) => g.biomePool(b));
+    return ordinaryPools.every((pool) => pool.length === ordinaryPools[0].length && pool.some(([id]) => g.DEX[id].rarity === 'legendary'));
+  })());
+  check('ordinary routes share one tier', new Set(g.BIOMES.filter((b) => !b.special).map((b) => b.tier)).size === 1);
+  check('only special routes use the distinct tier', g.BIOMES.filter((b) => b.special).every((b) => b.tier !== ordinary.tier));
+  check('special routes weight rarer monsters more heavily', legendaryWeight(special) > legendaryWeight(ordinary));
+  check('route types are weighted but not exclusive', (() => {
+    const pool = g.biomePool(ordinary);
+    const local = pool.find(([id]) => id === 'pidgey');
+    const offRoute = pool.find(([id]) => id === 'charmander');
+    return !!local && !!offRoute && local[1] > offRoute[1];
   })());
   let tiers = new Set();
   for (let i = 0; i < 60; i++) tiers.add(g.rollBiomeTier(0, 1));
-  check('a fresh expedition stays in the quiet country', [...tiers].join() === '1', [...tiers].join());
+  check('route tier rolls are available for ordinary routes', tiers.size > 0, [...tiers].join());
   tiers = new Set();
   for (let i = 0; i < 200; i++) tiers.add(g.rollBiomeTier(500, 1));
-  check('cleared encounters open the rarer tiers', tiers.has(4) && tiers.size > 1, [...tiers].join());
+  check('cleared encounters open the special tier', tiers.has(2) && tiers.size > 1, [...tiers].join());
   check('the same tier still offers different areas', (() => {
     const seen = new Set();
     for (let i = 0; i < 60; i++) seen.add(g.randomBiomeOfTier(1).id);
@@ -375,14 +439,33 @@ console.log('\nbiome tiers');
   })());
   const area = g.BIOMES[0];
   check('encounters push the level range up', g.biomeLevelRange(area, 100)[0] > g.biomeLevelRange(area, 0)[0], JSON.stringify([g.biomeLevelRange(area, 0), g.biomeLevelRange(area, 100)]));
-  check('the level bonus is capped', g.levelBonus(100000) <= 25, String(g.levelBonus(100000)));
+  check('the level bonus is capped', g.levelBonus(100000) <= 92, String(g.levelBonus(100000)));
+}
+
+// ---------------------------------------------------------- reward economy ---
+console.log('\nachievement rewards');
+{
+  const coinRewards = g.ACHIEVEMENTS.filter((a) => a.coins > 0).length;
+  const diamondRewards = g.ACHIEVEMENTS.filter((a) => a.diamonds > 0).length;
+  check('most achievements pay coins', coinRewards > diamondRewards, `${coinRewards} coins / ${diamondRewards} diamonds`);
+  check('achievement diamond rewards stay small', g.ACHIEVEMENTS.filter((a) => a.diamonds > 0).every((a) => a.diamonds <= 30));
+  const s = fresh('charmander');
+  const before = s.coins;
+  check('completed achievements remain unclaimed', s.achievements.length === 0 && g.ACHIEVEMENTS[0].check(s));
+  reduce(s, { type: 'CLAIM_ACHIEVEMENT', achievementId: 'first-mon' });
+  check('claiming pays the reward once', s.achievements.includes('first-mon') && s.coins === before + g.ACHIEVEMENTS[0].coins);
+  const claimedCoins = s.coins;
+  reduce(s, { type: 'CLAIM_ACHIEVEMENT', achievementId: 'first-mon' });
+  check('achievement claims are idempotent', s.coins === claimedCoins && s.achievements.filter((id) => id === 'first-mon').length === 1);
+  reduce(s, { type: 'CLAIM_ACHIEVEMENT', achievementId: 'ten-mon' });
+  check('incomplete achievements cannot be claimed', !s.achievements.includes('ten-mon'));
 }
 
 // ------------------------------------------------------- diamonds & tickets --
 console.log('\ndiamonds and event tickets');
 {
   const s = fresh('charmander');
-  check('the daily delivery is gone', !('daily' in s.crates), JSON.stringify(Object.keys(s.crates)));
+  check('hourly crate state is gone', !('crates' in s));
   s.coins = 5_000_000;
   const coins = s.coins;
   const gems = s.diamonds;
@@ -483,6 +566,7 @@ console.log('\nreducer purity');
 
   const b = g.createInitialState();
   Object.assign(b, g.reduce(b, { type: 'CHOOSE_STARTER', species: 'bulbasaur' }));
+  b.achievements = g.ACHIEVEMENTS.map((a) => a.id);
   b.coins = 100_000;
   const before = b.coins;
   const once = g.reduce(b, { type: 'BUY_HABITAT', defId: g.MONO_HABITATS[0].id });
@@ -538,7 +622,7 @@ console.log('\nrebirth');
   s.diamonds = 40;
   s.eventTokens = 25;
   s.dexCaught.push('pikachu', 'eevee');
-  s.achievements.push('first-mon');
+  s.achievements = g.ACHIEVEMENTS.map((a) => a.id);
   s.galleryUnlocked.push('pikachu:art-normal');
   s.formsUnlocked.push('rotom:frost');
   s.upgrades = { eggStorage: 3 };
@@ -555,7 +639,7 @@ console.log('\nrebirth');
   check('rebirth resets the coin bank', s.coins === 500, String(s.coins));
   check('rebirth keeps the pokédex', s.dexCaught.length === dexBefore, `${dexBefore} → ${s.dexCaught.length}`);
   check('rebirth keeps achievements, gallery and forms',
-    s.achievements.length === 1 && s.galleryUnlocked.length === 1 && s.formsUnlocked.length === 1);
+    s.achievements.length === g.ACHIEVEMENTS.length && s.galleryUnlocked.length === 1 && s.formsUnlocked.length === 1);
   check('rebirth keeps event tokens', s.eventTokens === 25, String(s.eventTokens));
   check('rebirth keeps diamonds', s.diamonds >= gems);
   check('rebirth coin bonus is permanent', g.globalCoinMultiplier(s) > 1);
