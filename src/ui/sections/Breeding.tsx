@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../store';
 import { Bar, EggSprite, Modal, Panel, RarityTag, Sprite, TypeTag } from '../components';
-import { DEX, breedingCompatible, breedingTime, entry, fmt, fmtTime } from './shared';
+import { DEX, breedingCompatible, breedingTime, eggStorageCap, entry, fmt, fmtTime } from './shared';
 import type { Mon } from '../../game/state';
 
 export function Breeding() {
@@ -18,6 +18,9 @@ export function Breeding() {
   const chosenA = pick.a ? state.mons.find((m) => m.uid === pick.a) ?? null : null;
   const chosenB = pick.b ? state.mons.find((m) => m.uid === pick.b) ?? null : null;
   const check = chosenA && chosenB ? breedingCompatible(chosenA, chosenB) : null;
+  const femaleParent = chosenA?.gender === 'F' ? chosenA : chosenB?.gender === 'F' ? chosenB : null;
+  const maleParent = chosenA?.gender === 'M' ? chosenA : chosenB?.gender === 'M' ? chosenB : null;
+  const maleHasDestinyKnot = maleParent?.heldItem === 'destiny-knot';
 
   const eligible = (mon: Mon, other: Mon | null) => {
     if (!other) return true;
@@ -46,8 +49,8 @@ export function Breeding() {
           }
         >
           <div className="small muted" style={{ marginBottom: 10 }}>
-            One male and one female, matching type (or one Normal), and sharing an egg group. Parents rest for 20
-            minutes afterwards.
+            One male and one female that share an egg group. The female parent determines the offspring species;
+            the male supplies inherited stats and moves. Parents rest for 20 minutes afterwards.
           </div>
           <div className="stack" style={{ gap: 10 }}>
             {Array.from({ length: state.breedingZones }).map((_, i) => {
@@ -68,7 +71,7 @@ export function Breeding() {
                       </div>
                       <Bar value={pair.total - pair.remaining} max={pair.total} tone="linear-gradient(90deg,#ff9ecb,#f06292)" />
                       <div className="tiny dim">
-                        {entry(a.species).name} × {entry(bMon.species).name} → egg of either species
+                        {entry(a.species).name} × {entry(bMon.species).name} → egg of the female parent’s species
                       </div>
                     </div>
                   ) : (
@@ -76,7 +79,7 @@ export function Breeding() {
                       <span className="muted small">Zone {i + 1} — empty</span>
                       <button
                         className="btn sm primary"
-                        disabled={state.eggs.length >= 10 + (state.upgrades.eggStorage ?? 0) * 3}
+                        disabled={state.eggs.length >= eggStorageCap(state)}
                         onClick={() => {
                           setSlot(0);
                           setPick({});
@@ -105,8 +108,9 @@ export function Breeding() {
             </div>
           </div>
           <div className="small muted" style={{ marginTop: 12 }}>
-            Eggs inherit from their parents: higher parent rarity gives a better egg tier, and two parents of very
-            different rarity can upgrade the result.
+            Eggs inherit the female species. Three random IV stats come from the male; holding a Destiny Knot on
+            either parent selects five of the male’s strongest IVs instead. The male’s egg moves and both parents’
+            inherited TM moves are carried into the hatchling.
           </div>
           {state.breedingPairs.length > 0 && (
             <div className="stack" style={{ gap: 6, marginTop: 12 }}>
@@ -140,6 +144,7 @@ export function Breeding() {
               </div>
               <div className="body">
                 <div className="name">{entry(m.species).name}</div>
+                <div className="row" style={{ gap: 6 }}><RarityTag rarity={entry(m.species).rarity} /><span className="tiny dim">{m.gender === 'F' ? 'female parent' : m.gender === 'M' ? 'male parent' : 'genderless'}</span></div>
                 <div className="row" style={{ gap: 4 }}>
                   {entry(m.species).types.map((t) => <TypeTag key={t} type={t} />)}
                 </div>
@@ -164,7 +169,7 @@ export function Breeding() {
         <Modal title="Pick two parents" onClose={() => setSlot(null)} wide>
           <div className="grid g2">
             <div className="stack">
-              <h3>Parent A {chosenA ? `— ${entry(chosenA.species).name}` : ''}</h3>
+              <h3>Parent A {chosenA ? `— ${entry(chosenA.species).name} (${chosenA.gender === 'F' ? 'female' : chosenA.gender === 'M' ? 'male' : 'genderless'})` : ''}</h3>
               <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 8 }}>
                 {candidates.filter((m) => eligible(m, chosenB)).map((m) => (
                   <div
@@ -211,6 +216,9 @@ export function Breeding() {
                       ? `Compatible — breeding takes about ${fmtTime(breedingTime(chosenA, chosenB, state))}.`
                       : check?.reason}
                   </div>
+                  {check?.ok && femaleParent && maleParent && <div className="tiny dim" style={{ marginTop: 5 }}>
+                    Offspring: <b>{entry(femaleParent.species).name}</b> · male inheritance: {maleHasDestinyKnot ? '5 strongest IVs with Destiny Knot' : '3 selected IVs'} · {maleParent.eggMoves?.length ? `${maleParent.eggMoves.length} egg move${maleParent.eggMoves.length === 1 ? '' : 's'}` : 'learnset moves'} carried
+                  </div>}
                 </div>
                 <button
                   className="btn primary"

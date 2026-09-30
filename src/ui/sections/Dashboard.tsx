@@ -1,20 +1,19 @@
 import React from 'react';
 import { useGame } from '../store';
-import { Bar, ItemSprite, MonArt, Panel, RarityTag, Sprite, Stat, TypeTag } from '../components';
+import { ItemSprite, Panel, Sprite, Stat } from '../components';
 import {
-  HABITAT_BY_ID, HOURLY_CRATE_MS, DIAMOND_EXCHANGE_GAIN, currentEvent, diamondExchangeCost, entry,
-  globalCoinMultiplier, habitatProduction, habitatSlots, hourlyCrateCoins, housedCount,
-  monsInHabitat, productionPerMinute, storageCap, totalHabitatSlots, transferHint,
+  HABITAT_BY_ID, DIAMOND_EXCHANGE_GAIN, currentEvent, diamondExchangeCost, entry,
+  globalCoinMultiplier, habitatPendingCoins, habitatProduction, habitatSlots, housedCount,
+  monsInHabitat, productionPerMinute, storageCap, totalHabitatSlots, totalPendingHabitatCoins,
 } from './shared';
 import { fmt, fmtTime } from '../../game/rng';
 
 export function Dashboard({ go }: { go: (tab: string) => void }) {
   const { state, dispatch } = useGame();
-  const now = Date.now();
-  const hourlyReady = now - state.crates.hourly >= HOURLY_CRATE_MS;
   const exchangeCost = diamondExchangeCost(state);
   const canExchange = state.coins >= exchangeCost;
   const ppm = productionPerMinute(state);
+  const pending = totalPendingHabitatCoins(state);
   const event = currentEvent();
   const housed = housedCount(state);
   const slots = totalHabitatSlots(state);
@@ -28,62 +27,56 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
         <Panel title="Reserve output" right={<span className="tag">{globalCoinMultiplier(state).toFixed(2)}× global</span>}>
           <div className="row" style={{ gap: 26, flexWrap: 'wrap' }}>
             <div>
-              <div className="tiny muted">PER HOUR</div>
+              <div className="tiny muted">CURRENT PER HOUR</div>
               <div className="big">⛁ {fmt(ppm * 60)}</div>
             </div>
             <div>
-              <div className="tiny muted">PER DAY</div>
+              <div className="tiny muted">CURRENT PER DAY</div>
               <div className="big">⛁ {fmt(ppm * 1440)}</div>
             </div>
           </div>
           <div style={{ marginTop: 14 }}>
-            <Stat
-              label="Output per minute"
-              value={`${fmt(ppm)} ⛁`}
-              hint="Sum of every monster currently housed in a habitat"
-            />
+            <Stat label="Output per minute" value={`${fmt(ppm)} ⛁`} hint="Income is deposited into each habitat, not the balance." />
           </div>
         </Panel>
 
         <Panel
-          title="Supply crate & coin exchange"
-          right={<span className="tag">{hourlyReady ? 'crate ready' : 'refilling'}</span>}
+          title="Biome cash & coin exchange"
+          right={<span className="tag" style={{ color: pending > 0 ? 'var(--gold)' : undefined }}>{fmt(pending)} waiting</span>}
         >
           <div className="stack" style={{ gap: 10 }}>
-            <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="btn primary sm" disabled={!hourlyReady} onClick={() => dispatch({ type: 'CLAIM_CRATE' })}>
-                📦 Hourly crate
+            <div className="row between" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <div className="small muted">Your habitats are holding <b style={{ color: 'var(--gold)' }}>⛁ {fmt(pending)}</b>.</div>
+              <button className="btn primary sm" disabled={pending <= 0} onClick={() => dispatch({ type: 'COLLECT_ALL_HABITAT_CASH' })}>
+                Collect all habitat cash
               </button>
-              <span className="small muted">
-                ⛁ {fmt(hourlyCrateCoins(state))} · {hourlyReady ? 'ready now' : `in ${fmtTime(Math.ceil((HOURLY_CRATE_MS - (now - state.crates.hourly)) / 1000))}`}
-              </span>
             </div>
             <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <button
-                className="btn primary sm"
+                className="btn sm"
                 disabled={!canExchange}
                 onClick={() => dispatch({ type: 'CONVERT_COINS_TO_DIAMONDS' })}
-                title="Diamonds come out of the reserve: trade a pile of coins for one"
+                title="Trade a very large pile of collected coins for one diamond"
               >
                 💠 Coin exchange
               </button>
               <span className="small muted">
                 ⛁ {fmt(exchangeCost)} → {DIAMOND_EXCHANGE_GAIN} 💎 · {state.diamondExchanges} traded
-                {canExchange ? '' : ' · not enough coins'}
+                {canExchange ? '' : ' · not enough collected coins'}
               </span>
             </div>
             <div className="tiny dim">
-              There is no daily delivery. Diamonds are earned: the exchange above, achievements, rare wild drops,
-              the casino and rebirths. Event tokens come out of encounters while a festival is running.
+              Habitat cash is never collected automatically. Offline time is simulated through each Pokémon’s awake and
+              rest periods, then the result is left in the habitat that earned it.
             </div>
           </div>
         </Panel>
 
         <Panel title="Reserve status">
           <div className="row" style={{ gap: 22, flexWrap: 'wrap' }}>
-            <Stat label="Monsters" value={`${state.mons.length} / ${storageCap(state)}`} hint="Storage is expanded by unlocking habitats" />
-            <Stat label="Housed" value={`${housed} / ${slots}`} hint="Slots come from habitats and expansions" />
-            <Stat label="Asleep" value={asleep} hint="Sleepy monsters produce only 30%" />
+            <Stat label="Monsters" value={`${state.mons.length} / ${storageCap(state)}`} hint="Storage is expanded by habitats" />
+            <Stat label="Housed" value={`${housed} / ${slots}`} hint="Slots come from capacity upgrades" />
+            <Stat label="Asleep" value={asleep} hint="Resting monsters produce 30%" />
             <Stat label="Species" value={`${state.dexCaught.length} / 649`} />
           </div>
           <div className="row" style={{ gap: 22, marginTop: 14, flexWrap: 'wrap' }}>
@@ -116,6 +109,7 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
               if (!def) return null;
               const mons = monsInHabitat(state, h.id);
               const cap = habitatSlots(h);
+              const waiting = habitatPendingCoins(state, h.id);
               return (
                 <div key={h.id} className="panel" style={{ padding: 12 }}>
                   <div className="row between">
@@ -124,7 +118,7 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
                         {def.cls === 'multi' ? '🏛️' : '🏡'}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 700 }}>{def.name}</div>
+                        <div style={{ fontWeight: 700 }}>{h.name || def.name}</div>
                         <div className="tiny dim">
                           {def.types.slice(0, 3).join(' / ')}{def.types.length > 3 ? ' +' : ''} · {mons.length}/{cap} slots
                         </div>
@@ -132,10 +126,12 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
                     </div>
                     <div className="center">
                       <div className="tiny muted">PER HOUR</div>
-                      <div className="mono" style={{ color: 'var(--gold)', fontWeight: 700 }}>
-                        {fmt(habitatProduction(state, h.id) * 60)}
-                      </div>
+                      <div className="mono" style={{ color: 'var(--gold)', fontWeight: 700 }}>{fmt(habitatProduction(state, h.id) * 60)}</div>
                     </div>
+                  </div>
+                  <div className="row between" style={{ marginTop: 9 }}>
+                    <span className="small" style={{ color: waiting > 0 ? 'var(--gold)' : 'var(--muted)' }}>⛁ {fmt(waiting)} waiting</span>
+                    <button className="btn xs primary" disabled={waiting <= 0} onClick={() => dispatch({ type: 'COLLECT_HABITAT_CASH', instanceId: h.id })}>Collect</button>
                   </div>
                   <div className="slots" style={{ marginTop: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(46px, 1fr))' }}>
                     {mons.slice(0, 8).map((m) => (
@@ -144,9 +140,7 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
                         <span className="lvl">{m.level}</span>
                       </div>
                     ))}
-                    {Array.from({ length: Math.max(0, Math.min(8, cap) - mons.length) }).map((_, i) => (
-                      <div key={i} className="slot empty" />
-                    ))}
+                    {Array.from({ length: Math.max(0, Math.min(8, cap) - mons.length) }).map((_, i) => <div key={i} className="slot empty" />)}
                   </div>
                 </div>
               );
@@ -179,40 +173,23 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
             <div className="muted small">No items yet — wins in battle drop berries and held items.</div>
           ) : (
             <div className="row" style={{ gap: 8 }}>
-              {Object.entries(state.itemBag)
-                .filter(([, qty]) => qty > 0)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 14)
-                .map(([id, qty]) => (
-                  <div key={id} className="row" style={{ gap: 5, background: 'rgba(0,0,0,.25)', padding: '4px 9px', borderRadius: 999, border: '1px solid var(--line)' }}>
-                    <ItemSprite slug={id} size={18} />
-                    <span className="mono small">{qty}</span>
-                  </div>
-                ))}
+              {Object.entries(state.itemBag).filter(([, qty]) => qty > 0).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([id, qty]) => (
+                <div key={id} className="row" style={{ gap: 5, background: 'rgba(0,0,0,.25)', padding: '4px 9px', borderRadius: 999, border: '1px solid var(--line)' }}>
+                  <ItemSprite slug={id} size={18} /><span className="mono small">{qty}</span>
+                </div>
+              ))}
             </div>
           )}
         </Panel>
       </div>
 
       <Panel title="Recent activity">
-        {state.log.length === 0 ? (
-          <div className="muted small">Nothing has happened yet.</div>
-        ) : (
+        {state.log.length === 0 ? <div className="muted small">Nothing has happened yet.</div> : (
           <div className="stack" style={{ gap: 3 }}>
-            {state.log.slice(0, 8).map((l) => (
-              <div
-                key={l.id}
-                className="small"
-                style={{ color: l.tone === 'good' ? 'var(--good)' : l.tone === 'bad' ? 'var(--danger)' : 'var(--muted)' }}
-              >
-                {l.text}
-              </div>
-            ))}
+            {state.log.slice(0, 8).map((l) => <div key={l.id} className="small" style={{ color: l.tone === 'good' ? 'var(--good)' : l.tone === 'bad' ? 'var(--danger)' : 'var(--muted)' }}>{l.text}</div>)}
           </div>
         )}
       </Panel>
     </div>
   );
 }
-
-export { transferHint };

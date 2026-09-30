@@ -84,7 +84,7 @@ function playthrough(label, strategy) {
   reduce(s, { type: 'SET_TEAM', uids: s.mons.slice(0, 6).map((m) => m.uid) });
   let t = 0;
   const HOURS = Number(process.env.HOURS ?? 12);
-  // crates, boosts and seasonal events read the wall clock, so the harness
+  // boosts and seasonal events read the wall clock, so the harness
   // drives Date.now() along with the simulated seconds
   const clockStart = Date.now();
   const realNow = Date.now;
@@ -209,10 +209,10 @@ function greedy(s, t) {
     reduce(s, { type: 'AUTO_ASSIGN' });
   }
 
-  // pick up the wall-clock crates whenever they land
+  // the greedy buyer manually collects habitat purses, then trades spare coins
+  // for diamonds at the exchange.
   if (t % 60 === 0) {
-    reduce(s, { type: 'CLAIM_CRATE' });
-    // the greedy buyer also trades spare coins for diamonds at the exchange
+    reduce(s, { type: 'COLLECT_ALL_HABITAT_CASH' });
     while (s.coins > g.diamondExchangeCost(s) * 6) reduce(s, { type: 'CONVERT_COINS_TO_DIAMONDS' });
   }
 

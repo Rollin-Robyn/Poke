@@ -5,6 +5,20 @@ import { clamp } from './rng';
 
 export type Gender = 'M' | 'F' | 'N';
 
+export type BreedingStat = 'hp' | 'atk' | 'def' | 'spa' | 'spd' | 'spe';
+export type IVSet = Record<BreedingStat, number>;
+
+/** The data carried by a breeding egg before it is incubated. */
+export interface BreedingInheritance {
+  species: string;
+  female: string;
+  male: string;
+  ivs: IVSet;
+  eggMoves: string[];
+  tmMoves: string[];
+  inheritedStats: BreedingStat[];
+}
+
 /** A battle team is six monsters, like the games this borrows from. */
 export const MAX_TEAM = 6;
 
@@ -17,11 +31,19 @@ export interface Mon {
   xp: number;
   gender: Gender;
   nature: string;
+  /** legacy/summary IV used by the compact stat formula */
   iv: number;
+  /** per-stat IVs used by breeding; old saves are filled from `iv` */
+  ivs?: IVSet;
+  /** moves inherited from the parents rather than the species learnset */
+  eggMoves?: string[];
+  tmMoves?: string[];
   shiny: boolean;
   happiness: number; // 0..100
   /** seconds of work left before the monster gets sleepy */
   energy: number;
+  /** deterministic offline rest timer; asleep monsters still produce 30% */
+  restRemaining?: number;
   heldItem?: string | null;
   /** habitat currently worked, or null when in storage */
   habitatId?: string | null;
@@ -37,14 +59,26 @@ export interface OwnedHabitat {
   id: string;
   /** which habitat definition this copy is of */
   defId: string;
-  /** 0 = holds a single monster; each upgrade adds one more slot */
+  /** legacy mirror of capacityLevel, retained for old exports */
   slotLevel: number;
+  /** 0 = holds a single monster; each capacity upgrade adds one slot */
+  capacityLevel?: number;
+  /** independent rarity ceiling upgrade level */
+  rarityLevel?: number;
+  /** coins earned by residents that are waiting to be collected */
+  pendingCoins?: number;
+  name?: string;
 }
 
 export interface StoredEgg {
   id: string;
+  /** resolved Pokémon rarity, kept simple for old saves */
   tier: Rarity;
+  /** the purchasable egg product that created it */
+  eggTierId?: string;
   shiny?: boolean;
+  /** breeding data is resolved when the egg hatches */
+  inheritance?: BreedingInheritance;
   /** event eggs can hatch anything up to mythic, including limited forms */
   event?: string | null;
 }
@@ -53,12 +87,14 @@ export interface Hatch {
   id: string;
   eggId: string;
   tier: Rarity;
+  eggTierId?: string;
   shiny: boolean;
   incubatorId: string;
   remaining: number;
   total: number;
   /** breeding parents, when the egg came from breeding */
   parents?: [string, string];
+  inheritance?: BreedingInheritance;
   /** set for festival eggs, which roll on the event table */
   event?: string | null;
 }
@@ -67,6 +103,9 @@ export interface BreedingPair {
   id: string;
   a: string;
   b: string;
+  /** stable roles make the female species and male inheritance deterministic */
+  female?: string;
+  male?: string;
   remaining: number;
   total: number;
 }
@@ -85,6 +124,8 @@ export interface BattleLogEntry {
 
 export interface BattleState {
   team: string[];
+  /** currently deployed party member; null falls back to the first healthy one */
+  activeUid: string | null;
   biomeId: string;
   /** tier of the area the expedition is in (see BIOME_TIERS) */
   tier: number;
@@ -100,8 +141,10 @@ export interface BattleState {
   logId: number;
   /** encounters cleared since the area last changed */
   progress: number;
-  /** encounters cleared on this expedition - drives level range and tier rolls */
+  /** encounters cleared on this expedition */
   cleared: number;
+  /** number of complete biomes passed in this run; controls wild levels */
+  biomesPassed: number;
   /** encounters until the trail moves on */
   rotateAt: number;
   /** seconds until the next wild encounter (or until the party has rested) */
@@ -165,8 +208,6 @@ export interface GameState {
   /** event rewards already claimed */
   eventClaimed: string[];
   /** last casino round, for the UI */
-  /** unix ms of the last supply crate pickup */
-  crates: { hourly: number };
   /** how many times coins have been exchanged for diamonds - the price climbs */
   diamondExchanges: number;
   casinoResult: null | {
@@ -206,7 +247,7 @@ export const UPGRADES: UpgradeDef[] = [
   {
     id: 'eggStorage', name: 'Egg Storage', icon: '🧺', max: 30,
     cost: coinCost(8_000, 1.5),
-    blurb: (l) => `+3 egg storage (now ${10 + l * 3} + incubator space).`,
+    blurb: (l) => `+3 egg storage (now ${3 + l * 3} eggs).`,
   },
   {
     id: 'stamina', name: 'Rotom Fans', icon: '🌀', max: 30,
@@ -276,21 +317,13 @@ export function awakeSeconds(s: GameState): number {
   return 3600 * (1 + upgradeLevel(s, 'stamina') * 0.12);
 }
 
-/** Coins in the hourly crate: twenty minutes of reserve output, with a floor. */
-export function hourlyCrateCoins(s: GameState): number {
-  return Math.max(400, Math.floor(productionPerMinute(s) * 20));
-}
-
-/** Coins in the hourly crate. */
-export const HOURLY_CRATE_MS = 60 * 60 * 1000;
-
 /**
  * The coin exchange: the only steady way to turn the reserve's coins into
  * diamonds. Every exchange costs more than the one before it, so a fat bank
  * buys a handful of gems rather than the whole shop.
  */
-export const DIAMOND_EXCHANGE_BASE = 25_000;
-export const DIAMOND_EXCHANGE_GROWTH = 1.45;
+export const DIAMOND_EXCHANGE_BASE = 250_000;
+export const DIAMOND_EXCHANGE_GROWTH = 1.85;
 export const DIAMOND_EXCHANGE_GAIN = 1;
 
 export function diamondExchangeCost(s: GameState): number {
@@ -320,14 +353,22 @@ export function breedingMultiplier(s: GameState): number {
 }
 
 export function eggStorageCap(s: GameState): number {
-  const base = 10 + upgradeLevel(s, 'eggStorage') * 3;
-  const incubatorSpace = s.hatches.length;
-  return base + incubatorSpace;
+  // Incubators are separate from the stockpile. A new reserve can hold only
+  // three unstarted eggs; upgrades are the only way to expand that cupboard.
+  return 3 + upgradeLevel(s, 'eggStorage') * 3;
 }
 
-/** A habitat holds 1 monster plus one more per upgrade bought on that copy. */
+/** A habitat holds 1 monster plus one more per capacity upgrade. */
+export function habitatCapacityLevel(hab: OwnedHabitat): number {
+  return Math.max(0, Math.floor(hab.capacityLevel ?? hab.slotLevel ?? 0));
+}
+
+export function habitatRarityLevel(hab: OwnedHabitat): number {
+  return Math.max(0, Math.floor(hab.rarityLevel ?? hab.slotLevel ?? 0));
+}
+
 export function habitatSlots(hab: OwnedHabitat): number {
-  return 1 + hab.slotLevel;
+  return 1 + habitatCapacityLevel(hab);
 }
 
 export function totalHabitatSlots(s: GameState): number {
@@ -415,19 +456,27 @@ export function habitatFreeSlots(s: GameState, hab: OwnedHabitat): number {
   return habitatSlots(hab) - used;
 }
 
+export function habitatPendingCoins(s: GameState, instanceId: string): number {
+  return s.habitats.find((h) => h.id === instanceId)?.pendingCoins ?? 0;
+}
+
+export function totalPendingHabitatCoins(s: GameState): number {
+  return s.habitats.reduce((sum, h) => sum + (h.pendingCoins ?? 0), 0);
+}
+
 /**
- * A habitat only takes the rarities its capacity upgrades have unlocked. A
- * brand new habitat is a common/uncommon home and each upgrade widens what it
- * will accept (rare → epic → legendary), so a legendary monster needs a fully
- * upgraded habitat to live in.
+ * A habitat only takes the rarities its independent rarity upgrades have
+ * unlocked. A brand new habitat is a common/uncommon home and each rarity
+ * upgrade widens what it will accept (rare → epic → legendary).
  */
-export function habitatRarityCap(slotLevel: number): Rarity {
-  // a brand new habitat takes common *and* uncommon; each upgrade adds one tier
-  return RARITIES[Math.min(Math.max(0, slotLevel) + 1, RARITIES.length - 1)];
+export function habitatRarityCap(rarityLevel: number): Rarity {
+  // A separate rarity track means room upgrades no longer accidentally unlock
+  // the best monsters for free.
+  return RARITIES[Math.min(Math.max(0, Math.floor(rarityLevel)) + 1, RARITIES.length - 1)];
 }
 
 export function rarityAllowed(hab: OwnedHabitat, rarity: Rarity): boolean {
-  return RARITIES.indexOf(rarity) <= RARITIES.indexOf(habitatRarityCap(hab.slotLevel));
+  return RARITIES.indexOf(rarity) <= RARITIES.indexOf(habitatRarityCap(habitatRarityLevel(hab)));
 }
 
 /** Everything a habitat checks before letting a monster in. */
@@ -437,8 +486,8 @@ export function habitatRejection(hab: OwnedHabitat, def: HabitatDef, mon: Mon): 
     return `${def.name} only accepts ${def.types.join(' / ')} monsters.`;
   }
   if (!rarityAllowed(hab, e.rarity)) {
-    const cap = habitatRarityCap(hab.slotLevel);
-    return `${def.name} only accepts up to ${cap} — upgrade its capacity to take ${e.rarity} monsters.`;
+    const cap = habitatRarityCap(habitatRarityLevel(hab));
+    return `${def.name} only accepts up to ${cap} — upgrade its rarity to take ${e.rarity} monsters.`;
   }
   return null;
 }

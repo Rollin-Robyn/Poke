@@ -1,7 +1,7 @@
 import {
   BIOMES, BIOME_BY_ID, EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, EVENTS, HABITATS, HABITAT_BY_ID,
   INCUBATORS, INCUBATOR_BY_ID, ITEMS, ITEM_BY_ID, MONO_HABITATS, currentEvent, nextHabitatCost,
-  slotUpgradeCost,
+  capacityUpgradeCost, rarityUpgradeCost, type EggTierId,
 } from './content';
 import { BALL_BY_ID, BALLS, tierOf } from './battle';
 import {
@@ -10,8 +10,8 @@ import {
 } from './casino';
 import { DEX, DEX_IDS, RARITY_HATCH_TIME, entry } from './dex';
 import {
-  breedingCompatible, breedingTime, createInitialState, fastForward, makeMon,
-  rebirthGain, simulate, syncBattleTeam, tryCatch, useMove,
+  breedingCompatible, breedingTime, checkAchievements, createInitialState, fastForward, makeMon,
+  rebirthGain, simulate, syncBattleTeam, switchBattlePokemon, tryCatch, useMove,
 } from './reducer';
 import { chance, clamp, pick, rndInt, uid } from './rng';
 import { BALL_BY_ID as BALL_LOOKUP } from './battle';
@@ -19,7 +19,8 @@ import {
   DIAMOND_UPGRADES, DIAMOND_UPGRADE_BY_ID, UPGRADES, UPGRADE_BY_ID, countHabitatClass, diamondLevel,
   eggStorageCap, globalCoinMultiplier, habitatFreeSlots, habitatRejection, habitatSlots, incubationMultiplier,
   monOutputWithHabitat, ownedHabitat, productionPerMinute, storageCap, upgradeLevel,
-  HOURLY_CRATE_MS, hourlyCrateCoins, diamondExchangeCost, DIAMOND_EXCHANGE_GAIN, MAX_TEAM,
+  habitatCapacityLevel, habitatRarityLevel, habitatPendingCoins, totalPendingHabitatCoins,
+  diamondExchangeCost, DIAMOND_EXCHANGE_GAIN, MAX_TEAM,
 } from './state';
 import type { GameState } from './state';
 import type { Rarity } from './dex';
@@ -36,11 +37,16 @@ export type Action =
   | { type: 'AUTO_ASSIGN' }
   | { type: 'BUY_HABITAT'; defId: string }
   | { type: 'BUY_HABITAT_SLOT'; instanceId: string }
+  | { type: 'BUY_HABITAT_CAPACITY'; instanceId: string }
+  | { type: 'BUY_HABITAT_RARITY'; instanceId: string }
+  | { type: 'COLLECT_HABITAT_CASH'; instanceId: string }
+  | { type: 'COLLECT_ALL_HABITAT_CASH' }
   | { type: 'RENAME_HABITAT'; instanceId: string; name: string }
   | { type: 'USE_MOVE'; uid: string; moveId: string }
+  | { type: 'SWITCH_POKEMON'; uid: string }
   | { type: 'BUY_UPGRADE'; id: string }
   | { type: 'BUY_DIAMOND_UPGRADE'; id: string }
-  | { type: 'BUY_EGG'; tier: RarityLike; qty: number }
+  | { type: 'BUY_EGG'; tier: EggTierId; qty: number }
   | { type: 'BUY_EVENT_EGG'; qty: number; currency: 'tokens' | 'diamonds' }
   | { type: 'START_HATCH'; eggId: string; incubatorId: string }
   | { type: 'INSTANT_HATCH'; hatchId: string }
@@ -63,7 +69,6 @@ export type Action =
   | { type: 'REBIRTH' }
   | { type: 'UNLOCK_FORM'; species: string; form: string; cost: number }
   | { type: 'CLAIM_EVENT'; rewardIndex: number }
-  | { type: 'CLAIM_CRATE' }
   | { type: 'CONVERT_COINS_TO_DIAMONDS' }
   | { type: 'CLEAR_OFFLINE' }
   | { type: 'HARD_RESET' };
@@ -120,7 +125,7 @@ export function reduce(state: GameState, action: Action): GameState {
       // and a monotype habitat matching its type, so it has somewhere to live
       const primary = entry(chosen).types[0];
       const home = MONO_HABITATS.find((h) => h.types[0] === primary) ?? MONO_HABITATS[0];
-      const instance = { id: uid('hab'), defId: home.id, slotLevel: 0 };
+      const instance = { id: uid('hab'), defId: home.id, slotLevel: 0, capacityLevel: 0, rarityLevel: 0, pendingCoins: 0 };
       s.habitats.push(instance);
       starter.habitatId = instance.id;
 
@@ -181,22 +186,64 @@ export function reduce(state: GameState, action: Action): GameState {
         say(s, `Not enough coins — ${def.name} costs ⛁ ${cost.toLocaleString()}.`, 'bad');
         break;
       }
-      s.habitats.push({ id: uid('hab'), defId: def.id, slotLevel: 0 });
+      s.habitats.push({ id: uid('hab'), defId: def.id, slotLevel: 0, capacityLevel: 0, rarityLevel: 0, pendingCoins: 0 });
       say(s, `${def.name} built! It holds 1 monster until you upgrade it.`, 'good');
       break;
     }
 
-    case 'BUY_HABITAT_SLOT': {
+    case 'BUY_HABITAT_SLOT':
+    case 'BUY_HABITAT_CAPACITY': {
       const hab = ownedHabitat(s, action.instanceId);
       const def = hab ? HABITAT_BY_ID[hab.defId] : null;
       if (!hab || !def) break;
-      const cost = slotUpgradeCost(def, hab.slotLevel);
+      const level = habitatCapacityLevel(hab);
+      const cost = capacityUpgradeCost(def, level);
       if (!spend(s, cost)) {
         say(s, 'Not enough coins for that capacity upgrade.', 'bad');
         break;
       }
-      hab.slotLevel += 1;
+      hab.capacityLevel = level + 1;
+      hab.slotLevel = hab.capacityLevel;
       say(s, `${def.name} now holds ${habitatSlots(hab)} monsters.`, 'good');
+      break;
+    }
+
+    case 'BUY_HABITAT_RARITY': {
+      const hab = ownedHabitat(s, action.instanceId);
+      const def = hab ? HABITAT_BY_ID[hab.defId] : null;
+      if (!hab || !def) break;
+      const level = habitatRarityLevel(hab);
+      if (level >= 3) {
+        say(s, 'This habitat already accepts legendary Pokémon.', 'bad');
+        break;
+      }
+      const cost = rarityUpgradeCost(def, level);
+      if (!spend(s, cost)) {
+        say(s, 'Not enough coins for that rarity upgrade.', 'bad');
+        break;
+      }
+      hab.rarityLevel = level + 1;
+      say(s, `${def.name} now accepts up to ${['uncommon', 'rare', 'epic', 'legendary'][level + 1]}.`, 'good');
+      break;
+    }
+
+    case 'COLLECT_HABITAT_CASH': {
+      const hab = ownedHabitat(s, action.instanceId);
+      if (!hab) break;
+      const amount = hab.pendingCoins ?? 0;
+      if (amount <= 0) break;
+      s.coins += amount;
+      hab.pendingCoins = 0;
+      say(s, `Collected ⛁${Math.floor(amount).toLocaleString()} from ${HABITAT_BY_ID[hab.defId]?.name ?? 'habitat'}.`, 'good');
+      break;
+    }
+
+    case 'COLLECT_ALL_HABITAT_CASH': {
+      const amount = totalPendingHabitatCoins(s);
+      if (amount <= 0) break;
+      for (const hab of s.habitats) hab.pendingCoins = 0;
+      s.coins += amount;
+      say(s, `Collected ⛁${Math.floor(amount).toLocaleString()} from every habitat.`, 'good');
       break;
     }
 
@@ -259,7 +306,7 @@ export function reduce(state: GameState, action: Action): GameState {
       if (tier.currency === 'diamonds') s.diamonds -= total;
       const shinyBonus = diamondLevel(s, 'shinyCharm') * 0.004;
       for (let i = 0; i < qty; i++) {
-        s.eggs.push({ id: uid('e'), tier: tier.id, shiny: chance(tier.shinyChance + shinyBonus) });
+        s.eggs.push({ id: uid('e'), tier: tier.rarity, eggTierId: tier.id, shiny: chance(tier.shinyChance + shinyBonus) });
       }
       say(s, `Bought ${qty} × ${tier.name}.`, 'good');
       break;
@@ -322,11 +369,12 @@ export function reduce(state: GameState, action: Action): GameState {
         break;
       }
       const egg = s.eggs[eggIdx];
-      const baseTime = RARITY_HATCH_TIME[egg.tier] * 60;
+      const eggProduct = EGG_TIERS.find((t) => t.id === egg.eggTierId);
+      const baseTime = eggProduct ? eggProduct.minutes * 60 : RARITY_HATCH_TIME[egg.tier] * 60;
       const total = baseTime / (inc.speed * incubationMultiplier(s));
       s.hatches.push({
-        id: uid('h'), eggId: egg.id, tier: egg.tier, shiny: !!egg.shiny,
-        incubatorId: inc.id, remaining: total, total,
+        id: uid('h'), eggId: egg.id, tier: egg.tier, eggTierId: egg.eggTierId, shiny: !!egg.shiny,
+        incubatorId: inc.id, remaining: total, total, inheritance: egg.inheritance,
       });
       s.eggs.splice(eggIdx, 1);
       say(s, `Egg placed in ${inc.name}.`, 'good');
@@ -542,6 +590,13 @@ export function reduce(state: GameState, action: Action): GameState {
       break;
     }
 
+    case 'SWITCH_POKEMON': {
+      const res = switchBattlePokemon(s, action.uid);
+      if (!res.ok) say(s, res.text, 'bad');
+      else say(s, res.text, 'good');
+      break;
+    }
+
     case 'THROW_BALL': {
       const res = tryCatch(s, action.ballId);
       if (!res.ok) say(s, res.text, 'bad');
@@ -582,9 +637,11 @@ export function reduce(state: GameState, action: Action): GameState {
         say(s, check.reason ?? 'Those two cannot breed.', 'bad');
         break;
       }
+      const female = a.gender === 'F' ? a : b;
+      const male = a.gender === 'M' ? a : b;
       const total = breedingTime(a, b, s);
-      s.breedingPairs.push({ id: uid('pair'), a: a.uid, b: b.uid, remaining: total, total });
-      say(s, `${entry(a.species).name} & ${entry(b.species).name} are breeding.`, 'good');
+      s.breedingPairs.push({ id: uid('pair'), a: a.uid, b: b.uid, female: female.uid, male: male.uid, remaining: total, total });
+      say(s, `${entry(female.species).name} & ${entry(male.species).name} are breeding. The egg will be ${entry(female.species).name}'s species.`, 'good');
       break;
     }
 
@@ -737,20 +794,6 @@ export function reduce(state: GameState, action: Action): GameState {
       break;
     }
 
-    case 'CLAIM_CRATE': {
-      const now = Date.now();
-      if (now - s.crates.hourly < HOURLY_CRATE_MS) {
-        say(s, 'The supply crate is still refilling.', 'bad');
-        break;
-      }
-      s.crates.hourly = now;
-      const coins = hourlyCrateCoins(s);
-      s.coins += coins;
-      s.stats.coinsEarned += coins;
-      say(s, `📦 Supply crate opened: +${Math.round(coins)} coins.`, 'good');
-      break;
-    }
-
     case 'CONVERT_COINS_TO_DIAMONDS': {
       // the coin exchange is the steady diamond source: no daily delivery, no
       // free gems - the reserve has to earn them
@@ -812,6 +855,7 @@ export function reduce(state: GameState, action: Action): GameState {
       break;
   }
 
+  checkAchievements(s);
   return s;
 }
 
@@ -829,7 +873,7 @@ function autoAssignAll(s: GameState): void {
       const def = HABITAT_BY_ID[h.defId];
       const free = slots.get(h.id) ?? 0;
       if (free <= 0 || !def) continue;
-      if (!DEX[mon.species].types.some((t) => def.types.includes(t))) continue;
+      if (habitatRejection(h, def, mon)) continue;
       mon.habitatId = h.id;
       slots.set(h.id, free - 1);
       break;

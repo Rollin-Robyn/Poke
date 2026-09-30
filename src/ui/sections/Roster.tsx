@@ -21,11 +21,27 @@ export function Roster() {
   const [detail, setDetail] = useState<string | null>(null);
   const [itemPick, setItemPick] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [rarityFilter, setRarityFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState<'all' | 'housed' | 'storage'>('all');
+  const [shinyOnly, setShinyOnly] = useState(false);
 
   const PER_PAGE = 48;
+  const types = useMemo(() => [...new Set(state.mons.flatMap((m) => entry(m.species).types))].sort(), [state.mons]);
 
   const sorted = useMemo(() => {
-    const list = [...state.mons];
+    const needle = query.trim().toLowerCase();
+    const list = state.mons.filter((m) => {
+      const e = entry(m.species);
+      if (needle && !e.name.toLowerCase().includes(needle)) return false;
+      if (typeFilter !== 'all' && !e.types.includes(typeFilter)) return false;
+      if (rarityFilter !== 'all' && e.rarity !== rarityFilter) return false;
+      if (locationFilter === 'housed' && !m.habitatId) return false;
+      if (locationFilter === 'storage' && m.habitatId) return false;
+      if (shinyOnly && !m.shiny) return false;
+      return true;
+    });
     const rar = (m: Mon) => RARITIES.indexOf(entry(m.species).rarity);
     switch (state.options.sort) {
       case 'output': return list.sort((a, b) => monOutputWithHabitat(state, b) - monOutputWithHabitat(state, a));
@@ -34,7 +50,7 @@ export function Roster() {
       case 'recent': return list.reverse();
       default: return list.sort((a, b) => b.level - a.level);
     }
-  }, [state]);
+  }, [state, query, typeFilter, rarityFilter, locationFilter, shinyOnly]);
 
   const shown = sorted.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
   const pages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
@@ -50,17 +66,22 @@ export function Roster() {
       <Panel
         title={`My monsters — ${state.mons.length} / ${storageCap(state)}`}
         right={
-          <div className="row" style={{ gap: 6 }}>
-            <span className="tiny muted">Sort</span>
-            {SORTS.map((s) => (
-              <button
-                key={s.id}
-                className={`btn xs ${state.options.sort === s.id ? 'primary' : 'ghost'}`}
-                onClick={() => dispatch({ type: 'SET_OPTION', key: 'sort', value: s.id })}
-              >
-                {s.label}
-              </button>
-            ))}
+          <div className="stack" style={{ gap: 6, alignItems: 'flex-end' }}>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <span className="tiny muted">Sort</span>
+              {SORTS.map((s) => (
+                <button key={s.id} className={`btn xs ${state.options.sort === s.id ? 'primary' : 'ghost'}`} onClick={() => { setPage(0); dispatch({ type: 'SET_OPTION', key: 'sort', value: s.id }); }}>{s.label}</button>
+              ))}
+            </div>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(0); }} placeholder="Search Pokémon…" style={{ width: 170 }} />
+              <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }} aria-label="Filter by type">
+                <option value="all">All types</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select value={rarityFilter} onChange={(e) => { setRarityFilter(e.target.value); setPage(0); }} aria-label="Filter by rarity">
+                <option value="all">All rarities</option>{RARITIES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
           </div>
         }
       >
@@ -69,6 +90,11 @@ export function Roster() {
           <span>📦 {state.mons.filter((m) => !m.habitatId).length} in storage</span>
           <span>😴 {state.mons.filter((m) => m.energy <= 0).length} asleep</span>
           <span>✨ {state.mons.filter((m) => m.shiny).length} shiny</span>
+          <select value={locationFilter} onChange={(e) => { setLocationFilter(e.target.value as 'all' | 'housed' | 'storage'); setPage(0); }} aria-label="Filter by location">
+            <option value="all">All locations</option><option value="housed">Housed</option><option value="storage">Storage</option>
+          </select>
+          <label className="row" style={{ gap: 5, cursor: 'pointer' }}><input type="checkbox" checked={shinyOnly} onChange={(e) => { setShinyOnly(e.target.checked); setPage(0); }} /> shiny only</label>
+          <span>{sorted.length} shown</span>
         </div>
       </Panel>
 

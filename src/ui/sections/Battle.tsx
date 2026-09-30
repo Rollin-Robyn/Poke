@@ -4,8 +4,8 @@ import { Bar, ItemSprite, Modal, Panel, Sprite, TypeTag } from '../components';
 import { TYPE_COLORS, typeMultiplier } from '../../game/typechart';
 import { MAX_TEAM } from '../../game/state';
 import {
-  BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, BIOME_TIERS, DEX, ballContextFor, biomeLevelRange, entry, fmt,
-  movesFor, statsAt, tierOf, effectiveSpeed, type BiomeTierDef,
+  BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, BIOME_TIERS, DEX, SPECIAL_BIOME_AFTER, SPECIAL_BIOME_CHANCE, ballContextFor, biomeLevelRange, entry, fmt,
+  movesFor, movesForMon, statsAt, tierOf, effectiveSpeed, type BiomeTierDef,
 } from './shared';
 
 export function Battle() {
@@ -23,17 +23,17 @@ export function Battle() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [b.log.length]);
   const team = b.team.map((u) => state.mons.find((m) => m.uid === u)).filter(Boolean);
-  const lead = b.players.find((p) => p.hp > 0);
+  const lead = (b.activeUid ? b.players.find((p) => p.uid === b.activeUid && p.hp > 0) : null) ?? b.players.find((p) => p.hp > 0);
   const leadMon = lead ? state.mons.find((m) => m.uid === lead.uid) : null;
 
   const teamFull = b.team.length >= MAX_TEAM;
   const enemyRarity = b.enemySpec ? entry(b.enemySpec).rarity : 'common';
   const caught = b.enemySpec ? state.dexCaught.includes(b.enemySpec) : false;
   const enemyTypes = b.enemySpec ? entry(b.enemySpec).types : [];
-  const leadMoves = leadMon ? movesFor(leadMon.species, leadMon.level) : [];
+  const leadMoves = leadMon ? movesForMon(leadMon) : [];
   const enemyMoves = b.enemySpec ? movesFor(b.enemySpec, b.enemyLevel) : [];
   const tier = tierOf(biome);
-  const [lo, hi] = biomeLevelRange(biome, b.cleared);
+  const [lo, hi] = biomeLevelRange(biome, b.biomesPassed);
   const bestLevel = state.mons.reduce((max, m) => Math.max(max, m.level), 0);
   // who would move first this turn - priority and speed, jittered like the games
   const leadSpeed = leadMon
@@ -54,7 +54,7 @@ export function Battle() {
             {tier.name} · tier {tier.tier}
           </span>
           <span className="small muted">
-            {b.progress}/{b.rotateAt} encounters until the trail moves on · {fmt(b.cleared)} cleared · Lv.{lo}–{hi} wild
+            {b.progress}/{b.rotateAt} encounters until the trail moves on · {fmt(b.biomesPassed)} biomes passed this run · Lv.{lo}–{hi} wild
           </span>
         </div>
         <div className="row" style={{ gap: 6 }}>
@@ -178,6 +178,7 @@ export function Battle() {
 
         <div className="stack">
           <Panel title={`Your team (${team.length}/${MAX_TEAM})`}>
+            {b.enemy && team.length > 1 && <div className="tiny dim" style={{ marginBottom: 8 }}>Switch is a turn action. The wild move selected for the current target still lands on the Pokémon you deploy.</div>}
             {team.length === 0 ? (
               <div className="muted small">No monsters assigned. Press “Team” to choose up to six.</div>
             ) : (
@@ -199,9 +200,12 @@ export function Battle() {
                           <div className="tiny dim">Lv.{m!.level} · {m!.nature} · {entry(m!.species).types.join('/')}</div>
                         </div>
                       </div>
-                      <div style={{ width: 130 }}>
-                        <Bar value={Math.max(0, hp)} max={max} className={`hp ${hp / max < 0.25 ? 'low' : ''}`} />
-                        <div className="tiny mono dim" style={{ textAlign: 'right' }}>{Math.max(0, Math.round(hp))}/{max}</div>
+                      <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                        <div style={{ width: 110 }}>
+                          <Bar value={Math.max(0, hp)} max={max} className={`hp ${hp / max < 0.25 ? 'low' : ''}`} />
+                          <div className="tiny mono dim" style={{ textAlign: 'right' }}>{Math.max(0, Math.round(hp))}/{max}</div>
+                        </div>
+                        {b.enemy && hp > 0 && !fighting && <button className="btn xs" onClick={() => dispatch({ type: 'SWITCH_POKEMON', uid: m!.uid })}>Switch</button>}
                       </div>
                     </div>
                   );
@@ -342,7 +346,8 @@ export function Battle() {
           <div className="stack" style={{ gap: 14 }}>
             {BIOME_TIERS.map((t: BiomeTierDef) => {
               const locked = bestLevel < t.unlockLevel || b.cleared < t.unlockCleared;
-              const areas = BIOMES.filter((x) => x.tier === t.tier);
+              const areas = BIOMES.filter((x) => x.tier === t.tier && !x.special);
+              const specialAreas = BIOMES.filter((x) => x.tier === t.tier && x.special);
               return (
                 <div key={t.tier}>
                   <div className="row between" style={{ marginBottom: 6 }}>
@@ -375,6 +380,9 @@ export function Battle() {
                       </button>
                     ))}
                   </div>
+                  {specialAreas.length > 0 && <div className="tiny dim" style={{ marginTop: 6 }}>
+                    ✨ Special routes ({specialAreas.map((x) => x.name).join(', ')}) are not selected manually. After {SPECIAL_BIOME_AFTER} passed biomes, this run has a {Math.round(SPECIAL_BIOME_CHANCE * 100)}% chance to reach one on rotation.
+                  </div>}
                 </div>
               );
             })}

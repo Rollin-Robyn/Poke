@@ -161,6 +161,19 @@ export function movesFor(species: string, level = MAX_LEVEL): MoveDef[] {
     .filter(Boolean);
 }
 
+/** A real monster can also carry moves inherited through breeding. */
+export function movesForMon(mon: Mon): MoveDef[] {
+  const ids = [
+    ...movesFor(mon.species, mon.level).map((m) => m.id),
+    ...(mon.eggMoves ?? []),
+    ...(mon.tmMoves ?? []),
+  ];
+  return [...new Set(ids)]
+    .slice(-MOVES_PER_MON)
+    .map((id) => MOVES[id])
+    .filter(Boolean);
+}
+
 /** Every move a species can learn over its whole life, weakest first. */
 export function learnsetOf(species: string): { move: MoveDef; level: number }[] {
   return (entry(species).learnset ?? [])
@@ -177,9 +190,12 @@ export function learnsetOf(species: string): { move: MoveDef; level: number }[] 
 export const ENCOUNTER_DELAY = 1.2;
 /** Seconds the party spends resting after a wipe before it can fight again. */
 export const WIPE_REST = 5;
-/** How much of the area's level band a cleared encounter is worth. */
-export const LEVEL_BONUS_PER_CLEAR = 1 / 5;
-export const MAX_LEVEL_BONUS = 20;
+/** Every ordinary route starts here; a passed biome raises both ends. */
+export const BASE_BIOME_LEVEL_RANGE: [number, number] = [2, 8];
+export const LEVEL_BONUS_PER_BIOME = 4;
+export const MAX_LEVEL_BONUS = 92;
+/** Kept as an export for old tooling; it now measures route progress. */
+export const LEVEL_BONUS_PER_CLEAR = LEVEL_BONUS_PER_BIOME;
 
 export function biomeById(id: string): BiomeDef {
   return BIOME_BY_ID[id] ?? BIOMES[0];
@@ -189,16 +205,15 @@ export function tierOf(biome: BiomeDef): BiomeTierDef {
   return BIOME_TIER_BY_ID[biome.tier] ?? BIOME_TIERS[0];
 }
 
-/** Wild monsters get stronger the longer an expedition runs. */
-export function levelBonus(cleared: number): number {
-  return Math.min(MAX_LEVEL_BONUS, Math.floor(cleared * LEVEL_BONUS_PER_CLEAR));
+/** Wild monsters get stronger once per complete biome passed, not per fight. */
+export function levelBonus(biomesPassed: number): number {
+  return Math.min(MAX_LEVEL_BONUS, Math.max(0, Math.floor(biomesPassed)) * LEVEL_BONUS_PER_BIOME);
 }
 
-/** The level band of a biome right now, pushed up by encounters cleared. */
-export function biomeLevelRange(biome: BiomeDef, cleared: number): [number, number] {
-  const [lo, hi] = tierOf(biome).levelRange;
-  const bonus = levelBonus(cleared);
-  return [lo + bonus, hi + bonus];
+/** The level band is intentionally identical in every ordinary biome. */
+export function biomeLevelRange(_biome: BiomeDef, biomesPassed: number): [number, number] {
+  const bonus = levelBonus(biomesPassed);
+  return [BASE_BIOME_LEVEL_RANGE[0] + bonus, BASE_BIOME_LEVEL_RANGE[1] + bonus];
 }
 
 /**
@@ -208,14 +223,18 @@ export function biomeLevelRange(biome: BiomeDef, cleared: number): [number, numb
  */
 export function biomePool(biome: BiomeDef): [string, number][] {
   const pool: [string, number][] = [];
-  const rarityWeight = tierOf(biome).rarity;
+  const rarityWeight = biome.special
+    ? { common: 35, uncommon: 42, rare: 28, epic: 10, legendary: 2.5 }
+    : { common: 100, uncommon: 32, rare: 7, epic: 0.6, legendary: 0.05 };
   for (const id of DEX_IDS) {
     const e = DEX[id];
-    if (!rarityWeight[e.rarity]) continue;
-    // keep wild spawns mostly at the bottom of an evolution line
     if (e.stage > 1 && e.rarity !== 'legendary') continue;
-    if (!e.types.some((t) => biome.types.includes(t))) continue;
-    pool.push([id, rarityWeight[e.rarity]]);
+    const rarity = rarityWeight[e.rarity];
+    const routeType = e.types.some((t) => biome.types.includes(t));
+    // Route tables contain off-type Pokémon too, while local types are much
+    // more common — the same compromise used by main-series routes.
+    const typeWeight = routeType ? (biome.special ? 4.5 : 5) : 1;
+    pool.push([id, rarity * typeWeight]);
   }
   return pool.length ? pool : [['pidgey', 100]];
 }
@@ -239,7 +258,7 @@ export function rollBiomeTier(cleared: number, current: BiomeTier): BiomeTier {
 
 /** A random area of a tier, so the same rarity still looks different. */
 export function randomBiomeOfTier(tier: BiomeTier, excludeId?: string): BiomeDef {
-  const inTier = BIOMES.filter((b) => b.tier === tier);
+  const inTier = BIOMES.filter((b) => b.tier === tier && !b.special);
   const fresh = inTier.filter((b) => b.id !== excludeId);
   const pool = fresh.length ? fresh : inTier;
   return pick(pool.length ? pool : [BIOMES[0]]);
@@ -433,6 +452,7 @@ export function pushBattleLog(state: BattleState, text: string, tone: BattleLogE
 export function makeInitialBattle(): BattleState {
   return {
     team: [],
+    activeUid: null,
     biomeId: BIOMES[0].id,
     tier: BIOMES[0].tier,
     enemyId: null,
@@ -446,6 +466,7 @@ export function makeInitialBattle(): BattleState {
     logId: 1,
     progress: 0,
     cleared: 0,
+    biomesPassed: 0,
     rotateAt: 10,
     timer: 0,
     rewards: { coins: 0, xp: 0, items: {} },
