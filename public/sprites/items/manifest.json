@@ -1,0 +1,2646 @@
+{
+"ability-urge": {
+"src": "Items/gen5 24x24/ability-urge.png",
+"rank": 0
+},
+"absorb-bulb": {
+"src": "Items/gen5 24x24/absorb-bulb.png",
+"rank": 0
+},
+"acro-bike": {
+"src": "Items/gen5 24x24/acro-bike.png",
+"rank": 0
+},
+"adamant-orb": {
+"src": "Items/gen5 24x24/adamant-orb.png",
+"rank": 0
+},
+"aguav-berry": {
+"src": "Items/gen5 24x24/aguav-berry.png",
+"rank": 0
+},
+"air-balloon": {
+"src": "Items/gen5 24x24/air-balloon.png",
+"rank": 0
+},
+"air-mail": {
+"src": "Items/gen5 24x24/air-mail.png",
+"rank": 0
+},
+"amulet-coin": {
+"src": "Items/gen5 24x24/amulet-coin.png",
+"rank": 0
+},
+"antidote": {
+"src": "Items/gen5 24x24/antidote.png",
+"rank": 0
+},
+"apicot-berry": {
+"src": "Items/gen5 24x24/apicot-berry.png",
+"rank": 0
+},
+"apricorn-box": {
+"src": "Items/gen5 24x24/apricorn-box.png",
+"rank": 0
+},
+"armor-fossil": {
+"src": "Items/gen5 24x24/armor-fossil.png",
+"rank": 0
+},
+"aspear-berry": {
+"src": "Items/gen5 24x24/aspear-berry.png",
+"rank": 0
+},
+"auroraticket": {
+"src": "Items/gen5 24x24/auroraticket.png",
+"rank": 0
+},
+"awakening": {
+"src": "Items/gen5 24x24/awakening.png",
+"rank": 0
+},
+"azure-flute": {
+"src": "Items/gen5 24x24/azure-flute.png",
+"rank": 0
+},
+"babiri-berry": {
+"src": "Items/gen5 24x24/babiri-berry.png",
+"rank": 0
+},
+"balm-mushroom": {
+"src": "Items/gen5 24x24/balm-mushroom.png",
+"rank": 0
+},
+"basement-key": {
+"src": "Items/gen5 24x24/basement-key.png",
+"rank": 0
+},
+"bead-mail": {
+"src": "Items/gen5 24x24/bead-mail.png",
+"rank": 0
+},
+"belue-berry": {
+"src": "Items/gen5 24x24/belue-berry.png",
+"rank": 0
+},
+"berry-juice": {
+"src": "Items/gen5 24x24/berry-juice.png",
+"rank": 0
+},
+"berry-pots": {
+"src": "Items/gen5 24x24/berry-pots.png",
+"rank": 0
+},
+"berry-pouch": {
+"src": "Items/gen5 24x24/berry-pouch.png",
+"rank": 0
+},
+"bicycle": {
+"src": "Items/gen5 24x24/bicycle.png",
+"rank": 0
+},
+"big-mushroom": {
+"src": "Items/gen5 24x24/big-mushroom.png",
+"rank": 0
+},
+"big-nugget": {
+"src": "Items/gen5 24x24/big-nugget.png",
+"rank": 0
+},
+"big-pearl": {
+"src": "Items/gen5 24x24/big-pearl.png",
+"rank": 0
+},
+"big-root": {
+"src": "Items/gen5 24x24/big-root.png",
+"rank": 0
+},
+"bike-voucher": {
+"src": "Items/gen5 24x24/bike-voucher.png",
+"rank": 0
+},
+"binding-band": {
+"src": "Items/gen5 24x24/binding-band.png",
+"rank": 0
+},
+"black-apricorn": {
+"src": "Items/gen5 24x24/black-apricorn.png",
+"rank": 0
+},
+"black-belt": {
+"src": "Items/gen5 24x24/black-belt.png",
+"rank": 0
+},
+"black-flute": {
+"src": "Items/gen5 24x24/black-flute.png",
+"rank": 0
+},
+"black-glasses": {
+"src": "Items/gen5 24x24/black-glasses.png",
+"rank": 0
+},
+"black-sludge": {
+"src": "Items/gen5 24x24/black-sludge.png",
+"rank": 0
+},
+"bloom-mail": {
+"src": "Items/gen5 24x24/bloom-mail.png",
+"rank": 0
+},
+"blue-apricorn": {
+"src": "Items/gen5 24x24/blue-apricorn.png",
+"rank": 0
+},
+"blue-card": {
+"src": "Items/gen5 24x24/blue-card.png",
+"rank": 0
+},
+"blue-flute": {
+"src": "Items/gen5 24x24/blue-flute.png",
+"rank": 0
+},
+"blue-orb": {
+"src": "Items/gen5 24x24/blue-orb.png",
+"rank": 0
+},
+"blue-scarf": {
+"src": "Items/gen5 24x24/blue-scarf.png",
+"rank": 0
+},
+"blue-shard": {
+"src": "Items/gen5 24x24/blue-shard.png",
+"rank": 0
+},
+"bluk-berry": {
+"src": "Items/gen5 24x24/bluk-berry.png",
+"rank": 0
+},
+"brick-mail": {
+"src": "Items/gen5 24x24/brick-mail.png",
+"rank": 0
+},
+"bridge-mail-d": {
+"src": "Items/gen5 24x24/bridge-mail-d.png",
+"rank": 0
+},
+"bridge-mail-m": {
+"src": "Items/gen5 24x24/bridge-mail-m.png",
+"rank": 0
+},
+"bridge-mail-s": {
+"src": "Items/gen5 24x24/bridge-mail-s.png",
+"rank": 0
+},
+"bridge-mail-t": {
+"src": "Items/gen5 24x24/bridge-mail-t.png",
+"rank": 0
+},
+"bridge-mail-v": {
+"src": "Items/gen5 24x24/bridge-mail-v.png",
+"rank": 0
+},
+"bright-powder": {
+"src": "Items/gen5 24x24/bright-powder.png",
+"rank": 0
+},
+"bubble-mail": {
+"src": "Items/gen5 24x24/bubble-mail.png",
+"rank": 0
+},
+"bug-gem": {
+"src": "Items/gen5 24x24/bug-gem.png",
+"rank": 0
+},
+"burn-drive": {
+"src": "Items/gen5 24x24/burn-drive.png",
+"rank": 0
+},
+"burn-heal": {
+"src": "Items/gen5 24x24/burn-heal.png",
+"rank": 0
+},
+"calcium": {
+"src": "Items/gen5 24x24/calcium.png",
+"rank": 0
+},
+"carbos": {
+"src": "Items/gen5 24x24/carbos.png",
+"rank": 0
+},
+"card-key": {
+"src": "Items/gen5 24x24/card-key.png",
+"rank": 0
+},
+"casteliacone": {
+"src": "Items/gen5 24x24/casteliacone.png",
+"rank": 0
+},
+"cell-battery": {
+"src": "Items/gen5 24x24/cell-battery.png",
+"rank": 0
+},
+"charcoal": {
+"src": "Items/gen5 24x24/charcoal.png",
+"rank": 0
+},
+"charti-berry": {
+"src": "Items/gen5 24x24/charti-berry.png",
+"rank": 0
+},
+"cheri-berry": {
+"src": "Items/gen5 24x24/cheri-berry.png",
+"rank": 0
+},
+"chesto-berry": {
+"src": "Items/gen5 24x24/chesto-berry.png",
+"rank": 0
+},
+"chilan-berry": {
+"src": "Items/gen5 24x24/chilan-berry.png",
+"rank": 0
+},
+"chill-drive": {
+"src": "Items/gen5 24x24/chill-drive.png",
+"rank": 0
+},
+"choice-band": {
+"src": "Items/gen5 24x24/choice-band.png",
+"rank": 0
+},
+"choice-scarf": {
+"src": "Items/gen5 24x24/choice-scarf.png",
+"rank": 0
+},
+"choice-specs": {
+"src": "Items/gen5 24x24/choice-specs.png",
+"rank": 0
+},
+"chople-berry": {
+"src": "Items/gen5 24x24/chople-berry.png",
+"rank": 0
+},
+"claw-fossil": {
+"src": "Items/gen5 24x24/claw-fossil.png",
+"rank": 0
+},
+"cleanse-tag": {
+"src": "Items/gen5 24x24/cleanse-tag.png",
+"rank": 0
+},
+"clear-bell": {
+"src": "Items/gen5 24x24/clear-bell.png",
+"rank": 0
+},
+"clever-wing": {
+"src": "Items/gen5 24x24/clever-wing.png",
+"rank": 0
+},
+"coba-berry": {
+"src": "Items/gen5 24x24/coba-berry.png",
+"rank": 0
+},
+"coin-case": {
+"src": "Items/gen5 24x24/coin-case.png",
+"rank": 0
+},
+"colbur-berry": {
+"src": "Items/gen5 24x24/colbur-berry.png",
+"rank": 0
+},
+"colress-machine": {
+"src": "Items/gen5 24x24/colress-machine.png",
+"rank": 0
+},
+"comet-shard": {
+"src": "Items/gen5 24x24/comet-shard.png",
+"rank": 0
+},
+"contest-pass": {
+"src": "Items/gen5 24x24/contest-pass.png",
+"rank": 0
+},
+"cornn-berry": {
+"src": "Items/gen5 24x24/cornn-berry.png",
+"rank": 0
+},
+"coupon-1": {
+"src": "Items/gen5 24x24/coupon-1.png",
+"rank": 0
+},
+"coupon-2": {
+"src": "Items/gen5 24x24/coupon-2.png",
+"rank": 0
+},
+"coupon-3": {
+"src": "Items/gen5 24x24/coupon-3.png",
+"rank": 0
+},
+"cover-fossil": {
+"src": "Items/gen5 24x24/cover-fossil.png",
+"rank": 0
+},
+"custap-berry": {
+"src": "Items/gen5 24x24/custap-berry.png",
+"rank": 0
+},
+"damp-mulch": {
+"src": "Items/gen5 24x24/damp-mulch.png",
+"rank": 0
+},
+"damp-rock": {
+"src": "Items/gen5 24x24/damp-rock.png",
+"rank": 0
+},
+"dark-gem": {
+"src": "Items/gen5 24x24/dark-gem.png",
+"rank": 0
+},
+"dark-stone": {
+"src": "Items/gen5 24x24/dark-stone.png",
+"rank": 0
+},
+"data-card": {
+"src": "Items/gen5 24x24/data-card.png",
+"rank": 0
+},
+"dawn-stone": {
+"src": "Items/gen5 24x24/dawn-stone.png",
+"rank": 0
+},
+"deep-sea-scale": {
+"src": "Items/gen5 24x24/deep-sea-scale.png",
+"rank": 0
+},
+"deep-sea-tooth": {
+"src": "Items/gen5 24x24/deep-sea-tooth.png",
+"rank": 0
+},
+"destiny-knot": {
+"src": "Items/gen5 24x24/destiny-knot.png",
+"rank": 0
+},
+"devon-goods": {
+"src": "Items/gen5 24x24/devon-goods.png",
+"rank": 0
+},
+"devon-scope": {
+"src": "Items/gen5 24x24/devon-scope.png",
+"rank": 0
+},
+"dire-hit-2": {
+"src": "Items/gen5 24x24/dire-hit-2.png",
+"rank": 0
+},
+"dire-hit-3": {
+"src": "Items/gen5 24x24/dire-hit-3.png",
+"rank": 0
+},
+"dire-hit": {
+"src": "Items/gen5 24x24/dire-hit.png",
+"rank": 0
+},
+"dna-splicers": {
+"src": "Items/gen5 24x24/dna-splicers.png",
+"rank": 0
+},
+"dome-fossil": {
+"src": "Items/gen5 24x24/dome-fossil.png",
+"rank": 0
+},
+"douse-drive": {
+"src": "Items/gen5 24x24/douse-drive.png",
+"rank": 0
+},
+"dowsing-machine": {
+"src": "Items/gen5 24x24/dowsing-machine.png",
+"rank": 0
+},
+"draco-plate": {
+"src": "Items/gen5 24x24/draco-plate.png",
+"rank": 0
+},
+"dragon-fang": {
+"src": "Items/gen5 24x24/dragon-fang.png",
+"rank": 0
+},
+"dragon-gem": {
+"src": "Items/gen5 24x24/dragon-gem.png",
+"rank": 0
+},
+"dragon-scale": {
+"src": "Items/gen5 24x24/dragon-scale.png",
+"rank": 0
+},
+"dragon-skull": {
+"src": "Items/gen5 24x24/dragon-skull.png",
+"rank": 0
+},
+"dread-plate": {
+"src": "Items/gen5 24x24/dread-plate.png",
+"rank": 0
+},
+"dream-mail": {
+"src": "Items/gen5 24x24/dream-mail.png",
+"rank": 0
+},
+"dropped-item": {
+"src": "Items/gen5 24x24/dropped-item.png",
+"rank": 0
+},
+"dubious-disc": {
+"src": "Items/gen5 24x24/dubious-disc.png",
+"rank": 0
+},
+"durin-berry": {
+"src": "Items/gen5 24x24/durin-berry.png",
+"rank": 0
+},
+"dusk-stone": {
+"src": "Items/gen5 24x24/dusk-stone.png",
+"rank": 0
+},
+"earth-plate": {
+"src": "Items/gen5 24x24/earth-plate.png",
+"rank": 0
+},
+"eject-button": {
+"src": "Items/gen5 24x24/eject-button.png",
+"rank": 0
+},
+"electirizer": {
+"src": "Items/gen5 24x24/electirizer.png",
+"rank": 0
+},
+"electric-gem": {
+"src": "Items/gen5 24x24/electric-gem.png",
+"rank": 0
+},
+"elixir": {
+"src": "Items/gen5 24x24/elixir.png",
+"rank": 0
+},
+"energy-powder": {
+"src": "Items/gen5 24x24/energy-powder.png",
+"rank": 0
+},
+"energy-root": {
+"src": "Items/gen5 24x24/energy-root.png",
+"rank": 0
+},
+"enigma-berry": {
+"src": "Items/gen5 24x24/enigma-berry.png",
+"rank": 0
+},
+"enigma-stone": {
+"src": "Items/gen5 24x24/enigma-stone.png",
+"rank": 0
+},
+"eon-ticket": {
+"src": "Items/gen5 24x24/eon-ticket.png",
+"rank": 0
+},
+"escape-rope": {
+"src": "Items/gen5 24x24/escape-rope.png",
+"rank": 0
+},
+"ether": {
+"src": "Items/gen5 24x24/ether.png",
+"rank": 0
+},
+"everstone": {
+"src": "Items/gen5 24x24/everstone.png",
+"rank": 0
+},
+"eviolite": {
+"src": "Items/gen5 24x24/eviolite.png",
+"rank": 0
+},
+"exp-share": {
+"src": "Items/gen5 24x24/exp-share.png",
+"rank": 0
+},
+"expert-belt": {
+"src": "Items/gen5 24x24/expert-belt.png",
+"rank": 0
+},
+"explorer-kit": {
+"src": "Items/gen5 24x24/explorer-kit.png",
+"rank": 0
+},
+"fab-mail": {
+"src": "Items/gen5 24x24/fab-mail.png",
+"rank": 0
+},
+"fame-checker": {
+"src": "Items/gen5 24x24/fame-checker.png",
+"rank": 0
+},
+"fashion-case": {
+"src": "Items/gen5 24x24/fashion-case.png",
+"rank": 0
+},
+"favored-mail": {
+"src": "Items/gen5 24x24/favored-mail.png",
+"rank": 0
+},
+"fighting-gem": {
+"src": "Items/gen5 24x24/fighting-gem.png",
+"rank": 0
+},
+"figy-berry": {
+"src": "Items/gen5 24x24/figy-berry.png",
+"rank": 0
+},
+"fire-gem": {
+"src": "Items/gen5 24x24/fire-gem.png",
+"rank": 0
+},
+"fire-stone": {
+"src": "Items/gen5 24x24/fire-stone.png",
+"rank": 0
+},
+"fist-plate": {
+"src": "Items/gen5 24x24/fist-plate.png",
+"rank": 0
+},
+"flame-mail": {
+"src": "Items/gen5 24x24/flame-mail.png",
+"rank": 0
+},
+"flame-orb": {
+"src": "Items/gen5 24x24/flame-orb.png",
+"rank": 0
+},
+"flame-plate": {
+"src": "Items/gen5 24x24/flame-plate.png",
+"rank": 0
+},
+"float-stone": {
+"src": "Items/gen5 24x24/float-stone.png",
+"rank": 0
+},
+"fluffy-tail": {
+"src": "Items/gen5 24x24/fluffy-tail.png",
+"rank": 0
+},
+"flying-gem": {
+"src": "Items/gen5 24x24/flying-gem.png",
+"rank": 0
+},
+"focus-band": {
+"src": "Items/gen5 24x24/focus-band.png",
+"rank": 0
+},
+"focus-sash": {
+"src": "Items/gen5 24x24/focus-sash.png",
+"rank": 0
+},
+"fresh-water": {
+"src": "Items/gen5 24x24/fresh-water.png",
+"rank": 0
+},
+"full-heal": {
+"src": "Items/gen5 24x24/full-heal.png",
+"rank": 0
+},
+"full-incense": {
+"src": "Items/gen5 24x24/full-incense.png",
+"rank": 0
+},
+"full-restore": {
+"src": "Items/gen5 24x24/full-restore.png",
+"rank": 0
+},
+"galactic-key": {
+"src": "Items/gen5 24x24/galactic-key.png",
+"rank": 0
+},
+"ganlon-berry": {
+"src": "Items/gen5 24x24/ganlon-berry.png",
+"rank": 0
+},
+"gb-sounds": {
+"src": "Items/gen5 24x24/gb-sounds.png",
+"rank": 0
+},
+"genius-wing": {
+"src": "Items/gen5 24x24/genius-wing.png",
+"rank": 0
+},
+"ghost-gem": {
+"src": "Items/gen5 24x24/ghost-gem.png",
+"rank": 0
+},
+"glitter-mail": {
+"src": "Items/gen5 24x24/glitter-mail.png",
+"rank": 0
+},
+"go-goggles": {
+"src": "Items/gen5 24x24/go-goggles.png",
+"rank": 0
+},
+"god-stone": {
+"src": "Items/gen5 24x24/god-stone.png",
+"rank": 0
+},
+"gold-teeth": {
+"src": "Items/gen5 24x24/gold-teeth.png",
+"rank": 0
+},
+"good-rod": {
+"src": "Items/gen5 24x24/good-rod.png",
+"rank": 0
+},
+"gooey-mulch": {
+"src": "Items/gen5 24x24/gooey-mulch.png",
+"rank": 0
+},
+"gracidea": {
+"src": "Items/gen5 24x24/gracidea.png",
+"rank": 0
+},
+"gram-1": {
+"src": "Items/gen5 24x24/gram-1.png",
+"rank": 0
+},
+"gram-2": {
+"src": "Items/gen5 24x24/gram-2.png",
+"rank": 0
+},
+"gram-3": {
+"src": "Items/gen5 24x24/gram-3.png",
+"rank": 0
+},
+"grass-gem": {
+"src": "Items/gen5 24x24/grass-gem.png",
+"rank": 0
+},
+"grass-mail": {
+"src": "Items/gen5 24x24/grass-mail.png",
+"rank": 0
+},
+"green-apricorn": {
+"src": "Items/gen5 24x24/green-apricorn.png",
+"rank": 0
+},
+"green-scarf": {
+"src": "Items/gen5 24x24/green-scarf.png",
+"rank": 0
+},
+"green-shard": {
+"src": "Items/gen5 24x24/green-shard.png",
+"rank": 0
+},
+"greet-mail": {
+"src": "Items/gen5 24x24/greet-mail.png",
+"rank": 0
+},
+"grepa-berry": {
+"src": "Items/gen5 24x24/grepa-berry.png",
+"rank": 0
+},
+"grip-claw": {
+"src": "Items/gen5 24x24/grip-claw.png",
+"rank": 0
+},
+"griseous-orb": {
+"src": "Items/gen5 24x24/griseous-orb.png",
+"rank": 0
+},
+"ground-gem": {
+"src": "Items/gen5 24x24/ground-gem.png",
+"rank": 0
+},
+"growth-mulch": {
+"src": "Items/gen5 24x24/growth-mulch.png",
+"rank": 0
+},
+"grubby-hanky": {
+"src": "Items/gen5 24x24/grubby-hanky.png",
+"rank": 0
+},
+"guard-spec": {
+"src": "Items/gen5 24x24/guard-spec.png",
+"rank": 0
+},
+"haban-berry": {
+"src": "Items/gen5 24x24/haban-berry.png",
+"rank": 0
+},
+"harbor-mail": {
+"src": "Items/gen5 24x24/harbor-mail.png",
+"rank": 0
+},
+"hard-stone": {
+"src": "Items/gen5 24x24/hard-stone.png",
+"rank": 0
+},
+"heal-powder": {
+"src": "Items/gen5 24x24/heal-powder.png",
+"rank": 0
+},
+"health-wing": {
+"src": "Items/gen5 24x24/health-wing.png",
+"rank": 0
+},
+"heart-mail": {
+"src": "Items/gen5 24x24/heart-mail.png",
+"rank": 0
+},
+"heart-scale": {
+"src": "Items/gen5 24x24/heart-scale.png",
+"rank": 0
+},
+"heat-rock": {
+"src": "Items/gen5 24x24/heat-rock.png",
+"rank": 0
+},
+"helix-fossil": {
+"src": "Items/gen5 24x24/helix-fossil.png",
+"rank": 0
+},
+"hm-bug": {
+"src": "Items/gen5 24x24/hm-bug.png",
+"rank": 0
+},
+"hm-dark": {
+"src": "Items/gen5 24x24/hm-dark.png",
+"rank": 0
+},
+"hm-dragon": {
+"src": "Items/gen5 24x24/hm-dragon.png",
+"rank": 0
+},
+"hm-electric": {
+"src": "Items/gen5 24x24/hm-electric.png",
+"rank": 0
+},
+"hm-fighting": {
+"src": "Items/gen5 24x24/hm-fighting.png",
+"rank": 0
+},
+"hm-fire": {
+"src": "Items/gen5 24x24/hm-fire.png",
+"rank": 0
+},
+"hm-flying": {
+"src": "Items/gen5 24x24/hm-flying.png",
+"rank": 0
+},
+"hm-ghost": {
+"src": "Items/gen5 24x24/hm-ghost.png",
+"rank": 0
+},
+"hm-grass": {
+"src": "Items/gen5 24x24/hm-grass.png",
+"rank": 0
+},
+"hm-ground": {
+"src": "Items/gen5 24x24/hm-ground.png",
+"rank": 0
+},
+"hm-ice": {
+"src": "Items/gen5 24x24/hm-ice.png",
+"rank": 0
+},
+"hm-normal": {
+"src": "Items/gen5 24x24/hm-normal.png",
+"rank": 0
+},
+"hm-poison": {
+"src": "Items/gen5 24x24/hm-poison.png",
+"rank": 0
+},
+"hm-psychic": {
+"src": "Items/gen5 24x24/hm-psychic.png",
+"rank": 0
+},
+"hm-rock": {
+"src": "Items/gen5 24x24/hm-rock.png",
+"rank": 0
+},
+"hm-steel": {
+"src": "Items/gen5 24x24/hm-steel.png",
+"rank": 0
+},
+"hm-water": {
+"src": "Items/gen5 24x24/hm-water.png",
+"rank": 0
+},
+"hondew-berry": {
+"src": "Items/gen5 24x24/hondew-berry.png",
+"rank": 0
+},
+"honey": {
+"src": "Items/gen5 24x24/honey.png",
+"rank": 0
+},
+"hp-up": {
+"src": "Items/gen5 24x24/hp-up.png",
+"rank": 0
+},
+"hyper-potion": {
+"src": "Items/gen5 24x24/hyper-potion.png",
+"rank": 0
+},
+"iapapa-berry": {
+"src": "Items/gen5 24x24/iapapa-berry.png",
+"rank": 0
+},
+"ice-gem": {
+"src": "Items/gen5 24x24/ice-gem.png",
+"rank": 0
+},
+"ice-heal": {
+"src": "Items/gen5 24x24/ice-heal.png",
+"rank": 0
+},
+"icicle-plate": {
+"src": "Items/gen5 24x24/icicle-plate.png",
+"rank": 0
+},
+"icy-rock": {
+"src": "Items/gen5 24x24/icy-rock.png",
+"rank": 0
+},
+"inquiry-mail": {
+"src": "Items/gen5 24x24/inquiry-mail.png",
+"rank": 0
+},
+"insect-plate": {
+"src": "Items/gen5 24x24/insect-plate.png",
+"rank": 0
+},
+"iron-ball": {
+"src": "Items/gen5 24x24/iron-ball.png",
+"rank": 0
+},
+"iron-plate": {
+"src": "Items/gen5 24x24/iron-plate.png",
+"rank": 0
+},
+"iron": {
+"src": "Items/gen5 24x24/iron.png",
+"rank": 0
+},
+"item-drop": {
+"src": "Items/gen5 24x24/item-drop.png",
+"rank": 0
+},
+"item-urge": {
+"src": "Items/gen5 24x24/item-urge.png",
+"rank": 0
+},
+"jaboca-berry": {
+"src": "Items/gen5 24x24/jaboca-berry.png",
+"rank": 0
+},
+"jade-orb": {
+"src": "Items/gen5 24x24/jade-orb.png",
+"rank": 0
+},
+"journal": {
+"src": "Items/gen5 24x24/journal.png",
+"rank": 0
+},
+"kasib-berry": {
+"src": "Items/gen5 24x24/kasib-berry.png",
+"rank": 0
+},
+"kebia-berry": {
+"src": "Items/gen5 24x24/kebia-berry.png",
+"rank": 0
+},
+"kelpsy-berry": {
+"src": "Items/gen5 24x24/kelpsy-berry.png",
+"rank": 0
+},
+"kings-rock": {
+"src": "Items/gen5 24x24/kings-rock.png",
+"rank": 0
+},
+"lagging-tail": {
+"src": "Items/gen5 24x24/lagging-tail.png",
+"rank": 0
+},
+"lansat-berry": {
+"src": "Items/gen5 24x24/lansat-berry.png",
+"rank": 0
+},
+"lava-cookie": {
+"src": "Items/gen5 24x24/lava-cookie.png",
+"rank": 0
+},
+"lax-incense": {
+"src": "Items/gen5 24x24/lax-incense.png",
+"rank": 0
+},
+"leaf-stone": {
+"src": "Items/gen5 24x24/leaf-stone.png",
+"rank": 0
+},
+"leftovers": {
+"src": "Items/gen5 24x24/leftovers.png",
+"rank": 0
+},
+"lemonade": {
+"src": "Items/gen5 24x24/lemonade.png",
+"rank": 0
+},
+"leppa-berry": {
+"src": "Items/gen5 24x24/leppa-berry.png",
+"rank": 0
+},
+"letter": {
+"src": "Items/gen5 24x24/letter.png",
+"rank": 0
+},
+"liberty-pass": {
+"src": "Items/gen5 24x24/liberty-pass.png",
+"rank": 0
+},
+"liechi-berry": {
+"src": "Items/gen5 24x24/liechi-berry.png",
+"rank": 0
+},
+"life-orb": {
+"src": "Items/gen5 24x24/life-orb.png",
+"rank": 0
+},
+"lift-key": {
+"src": "Items/gen5 24x24/lift-key.png",
+"rank": 0
+},
+"light-ball": {
+"src": "Items/gen5 24x24/light-ball.png",
+"rank": 0
+},
+"light-clay": {
+"src": "Items/gen5 24x24/light-clay.png",
+"rank": 0
+},
+"light-stone": {
+"src": "Items/gen5 24x24/light-stone.png",
+"rank": 0
+},
+"like-mail": {
+"src": "Items/gen5 24x24/like-mail.png",
+"rank": 0
+},
+"lock-capsule": {
+"src": "Items/gen5 24x24/lock-capsule.png",
+"rank": 0
+},
+"loot-sack": {
+"src": "Items/gen5 24x24/loot-sack.png",
+"rank": 0
+},
+"lost-item": {
+"src": "Items/gen5 24x24/lost-item.png",
+"rank": 0
+},
+"luck-incense": {
+"src": "Items/gen5 24x24/luck-incense.png",
+"rank": 0
+},
+"lucky-egg": {
+"src": "Items/gen5 24x24/lucky-egg.png",
+"rank": 0
+},
+"lucky-punch": {
+"src": "Items/gen5 24x24/lucky-punch.png",
+"rank": 0
+},
+"lum-berry": {
+"src": "Items/gen5 24x24/lum-berry.png",
+"rank": 0
+},
+"lunar-wing": {
+"src": "Items/gen5 24x24/lunar-wing.png",
+"rank": 0
+},
+"lustrous-orb": {
+"src": "Items/gen5 24x24/lustrous-orb.png",
+"rank": 0
+},
+"mach-bike": {
+"src": "Items/gen5 24x24/mach-bike.png",
+"rank": 0
+},
+"machine-part": {
+"src": "Items/gen5 24x24/machine-part.png",
+"rank": 0
+},
+"macho-brace": {
+"src": "Items/gen5 24x24/macho-brace.png",
+"rank": 0
+},
+"magma-emblem": {
+"src": "Items/gen5 24x24/magma-emblem.png",
+"rank": 0
+},
+"magma-stone": {
+"src": "Items/gen5 24x24/magma-stone.png",
+"rank": 0
+},
+"magmarizer": {
+"src": "Items/gen5 24x24/magmarizer.png",
+"rank": 0
+},
+"magnet": {
+"src": "Items/gen5 24x24/magnet.png",
+"rank": 0
+},
+"mago-berry": {
+"src": "Items/gen5 24x24/mago-berry.png",
+"rank": 0
+},
+"magost-berry": {
+"src": "Items/gen5 24x24/magost-berry.png",
+"rank": 0
+},
+"max-elixir": {
+"src": "Items/gen5 24x24/max-elixir.png",
+"rank": 0
+},
+"max-ether": {
+"src": "Items/gen5 24x24/max-ether.png",
+"rank": 0
+},
+"max-potion": {
+"src": "Items/gen5 24x24/max-potion.png",
+"rank": 0
+},
+"max-repel": {
+"src": "Items/gen5 24x24/max-repel.png",
+"rank": 0
+},
+"max-revive": {
+"src": "Items/gen5 24x24/max-revive.png",
+"rank": 0
+},
+"meadow-plate": {
+"src": "Items/gen5 24x24/meadow-plate.png",
+"rank": 0
+},
+"mech-mail": {
+"src": "Items/gen5 24x24/mech-mail.png",
+"rank": 0
+},
+"medal-box": {
+"src": "Items/gen5 24x24/medal-box.png",
+"rank": 0
+},
+"member-card": {
+"src": "Items/gen5 24x24/member-card.png",
+"rank": 0
+},
+"mental-herb": {
+"src": "Items/gen5 24x24/mental-herb.png",
+"rank": 0
+},
+"metal-coat": {
+"src": "Items/gen5 24x24/metal-coat.png",
+"rank": 0
+},
+"metal-powder": {
+"src": "Items/gen5 24x24/metal-powder.png",
+"rank": 0
+},
+"meteorite": {
+"src": "Items/gen5 24x24/meteorite.png",
+"rank": 0
+},
+"metronome": {
+"src": "Items/gen5 24x24/metronome.png",
+"rank": 0
+},
+"micle-berry": {
+"src": "Items/gen5 24x24/micle-berry.png",
+"rank": 0
+},
+"mind-plate": {
+"src": "Items/gen5 24x24/mind-plate.png",
+"rank": 0
+},
+"miracle-seed": {
+"src": "Items/gen5 24x24/miracle-seed.png",
+"rank": 0
+},
+"moomoo-milk": {
+"src": "Items/gen5 24x24/moomoo-milk.png",
+"rank": 0
+},
+"moon-stone": {
+"src": "Items/gen5 24x24/moon-stone.png",
+"rank": 0
+},
+"mosaic-mail": {
+"src": "Items/gen5 24x24/mosaic-mail.png",
+"rank": 0
+},
+"muscle-band": {
+"src": "Items/gen5 24x24/muscle-band.png",
+"rank": 0
+},
+"muscle-wing": {
+"src": "Items/gen5 24x24/muscle-wing.png",
+"rank": 0
+},
+"mystery-egg": {
+"src": "Items/gen5 24x24/mystery-egg.png",
+"rank": 0
+},
+"mystic-water": {
+"src": "Items/gen5 24x24/mystic-water.png",
+"rank": 0
+},
+"mysticticket": {
+"src": "Items/gen5 24x24/mysticticket.png",
+"rank": 0
+},
+"nanab-berry": {
+"src": "Items/gen5 24x24/nanab-berry.png",
+"rank": 0
+},
+"never-melt-ice": {
+"src": "Items/gen5 24x24/never-melt-ice.png",
+"rank": 0
+},
+"nomel-berry": {
+"src": "Items/gen5 24x24/nomel-berry.png",
+"rank": 0
+},
+"normal-gem": {
+"src": "Items/gen5 24x24/normal-gem.png",
+"rank": 0
+},
+"nugget": {
+"src": "Items/gen5 24x24/nugget.png",
+"rank": 0
+},
+"oaks-letter": {
+"src": "Items/gen5 24x24/oaks-letter.png",
+"rank": 0
+},
+"oaks-parcel": {
+"src": "Items/gen5 24x24/oaks-parcel.png",
+"rank": 0
+},
+"occa-berry": {
+"src": "Items/gen5 24x24/occa-berry.png",
+"rank": 0
+},
+"odd-incense": {
+"src": "Items/gen5 24x24/odd-incense.png",
+"rank": 0
+},
+"odd-keystone": {
+"src": "Items/gen5 24x24/odd-keystone.png",
+"rank": 0
+},
+"old-amber": {
+"src": "Items/gen5 24x24/old-amber.png",
+"rank": 0
+},
+"old-charm": {
+"src": "Items/gen5 24x24/old-charm.png",
+"rank": 0
+},
+"old-gateau": {
+"src": "Items/gen5 24x24/old-gateau.png",
+"rank": 0
+},
+"old-rod": {
+"src": "Items/gen5 24x24/old-rod.png",
+"rank": 0
+},
+"old-sea-map": {
+"src": "Items/gen5 24x24/old-sea-map.png",
+"rank": 0
+},
+"oran-berry": {
+"src": "Items/gen5 24x24/oran-berry.png",
+"rank": 0
+},
+"orange-mail": {
+"src": "Items/gen5 24x24/orange-mail.png",
+"rank": 0
+},
+"oval-charm": {
+"src": "Items/gen5 24x24/oval-charm.png",
+"rank": 0
+},
+"oval-stone": {
+"src": "Items/gen5 24x24/oval-stone.png",
+"rank": 0
+},
+"pal-pad": {
+"src": "Items/gen5 24x24/pal-pad.png",
+"rank": 0
+},
+"pamtre-berry": {
+"src": "Items/gen5 24x24/pamtre-berry.png",
+"rank": 0
+},
+"paralyze-heal": {
+"src": "Items/gen5 24x24/paralyze-heal.png",
+"rank": 0
+},
+"parcel": {
+"src": "Items/gen5 24x24/parcel.png",
+"rank": 0
+},
+"pass-orb": {
+"src": "Items/gen5 24x24/pass-orb.png",
+"rank": 0
+},
+"pass": {
+"src": "Items/gen5 24x24/pass.png",
+"rank": 0
+},
+"passho-berry": {
+"src": "Items/gen5 24x24/passho-berry.png",
+"rank": 0
+},
+"payapa-berry": {
+"src": "Items/gen5 24x24/payapa-berry.png",
+"rank": 0
+},
+"pearl-string": {
+"src": "Items/gen5 24x24/pearl-string.png",
+"rank": 0
+},
+"pearl": {
+"src": "Items/gen5 24x24/pearl.png",
+"rank": 0
+},
+"pecha-berry": {
+"src": "Items/gen5 24x24/pecha-berry.png",
+"rank": 0
+},
+"permit": {
+"src": "Items/gen5 24x24/permit.png",
+"rank": 0
+},
+"persim-berry": {
+"src": "Items/gen5 24x24/persim-berry.png",
+"rank": 0
+},
+"petaya-berry": {
+"src": "Items/gen5 24x24/petaya-berry.png",
+"rank": 0
+},
+"photo-album": {
+"src": "Items/gen5 24x24/photo-album.png",
+"rank": 0
+},
+"pinap-berry": {
+"src": "Items/gen5 24x24/pinap-berry.png",
+"rank": 0
+},
+"pink-apricorn": {
+"src": "Items/gen5 24x24/pink-apricorn.png",
+"rank": 0
+},
+"pink-scarf": {
+"src": "Items/gen5 24x24/pink-scarf.png",
+"rank": 0
+},
+"plasma-card": {
+"src": "Items/gen5 24x24/plasma-card.png",
+"rank": 0
+},
+"plume-fossil": {
+"src": "Items/gen5 24x24/plume-fossil.png",
+"rank": 0
+},
+"poffin-case": {
+"src": "Items/gen5 24x24/poffin-case.png",
+"rank": 0
+},
+"point-card": {
+"src": "Items/gen5 24x24/point-card.png",
+"rank": 0
+},
+"poison-barb": {
+"src": "Items/gen5 24x24/poison-barb.png",
+"rank": 0
+},
+"poison-gem": {
+"src": "Items/gen5 24x24/poison-gem.png",
+"rank": 0
+},
+"poke-doll": {
+"src": "Items/gen5 24x24/poke-doll.png",
+"rank": 0
+},
+"poke-flute": {
+"src": "Items/gen5 24x24/poke-flute.png",
+"rank": 0
+},
+"poke-radar": {
+"src": "Items/gen5 24x24/poke-radar.png",
+"rank": 0
+},
+"poke-toy": {
+"src": "Items/gen5 24x24/poke-toy.png",
+"rank": 0
+},
+"pokeblock-case": {
+"src": "Items/gen5 24x24/pokeblock-case.png",
+"rank": 0
+},
+"pomeg-berry": {
+"src": "Items/gen5 24x24/pomeg-berry.png",
+"rank": 0
+},
+"potion": {
+"src": "Items/gen5 24x24/potion.png",
+"rank": 0
+},
+"powder-jar": {
+"src": "Items/gen5 24x24/powder-jar.png",
+"rank": 0
+},
+"power-anklet": {
+"src": "Items/gen5 24x24/power-anklet.png",
+"rank": 0
+},
+"power-band": {
+"src": "Items/gen5 24x24/power-band.png",
+"rank": 0
+},
+"power-belt": {
+"src": "Items/gen5 24x24/power-belt.png",
+"rank": 0
+},
+"power-bracer": {
+"src": "Items/gen5 24x24/power-bracer.png",
+"rank": 0
+},
+"power-herb": {
+"src": "Items/gen5 24x24/power-herb.png",
+"rank": 0
+},
+"power-lens": {
+"src": "Items/gen5 24x24/power-lens.png",
+"rank": 0
+},
+"power-weight": {
+"src": "Items/gen5 24x24/power-weight.png",
+"rank": 0
+},
+"pp-max": {
+"src": "Items/gen5 24x24/pp-max.png",
+"rank": 0
+},
+"pp-up": {
+"src": "Items/gen5 24x24/pp-up.png",
+"rank": 0
+},
+"pretty-wing": {
+"src": "Items/gen5 24x24/pretty-wing.png",
+"rank": 0
+},
+"prism-scale": {
+"src": "Items/gen5 24x24/prism-scale.png",
+"rank": 0
+},
+"prop-case": {
+"src": "Items/gen5 24x24/prop-case.png",
+"rank": 0
+},
+"protector": {
+"src": "Items/gen5 24x24/protector.png",
+"rank": 0
+},
+"protein": {
+"src": "Items/gen5 24x24/protein.png",
+"rank": 0
+},
+"psychic-gem": {
+"src": "Items/gen5 24x24/psychic-gem.png",
+"rank": 0
+},
+"pure-incense": {
+"src": "Items/gen5 24x24/pure-incense.png",
+"rank": 0
+},
+"qualot-berry": {
+"src": "Items/gen5 24x24/qualot-berry.png",
+"rank": 0
+},
+"quick-claw": {
+"src": "Items/gen5 24x24/quick-claw.png",
+"rank": 0
+},
+"quick-powder": {
+"src": "Items/gen5 24x24/quick-powder.png",
+"rank": 0
+},
+"rabuta-berry": {
+"src": "Items/gen5 24x24/rabuta-berry.png",
+"rank": 0
+},
+"rage-candy-bar": {
+"src": "Items/gen5 24x24/rage-candy-bar.png",
+"rank": 0
+},
+"rainbow-pass": {
+"src": "Items/gen5 24x24/rainbow-pass.png",
+"rank": 0
+},
+"rainbow-wing": {
+"src": "Items/gen5 24x24/rainbow-wing.png",
+"rank": 0
+},
+"rare-bone": {
+"src": "Items/gen5 24x24/rare-bone.png",
+"rank": 0
+},
+"rare-candy": {
+"src": "Items/gen5 24x24/rare-candy.png",
+"rank": 0
+},
+"rawst-berry": {
+"src": "Items/gen5 24x24/rawst-berry.png",
+"rank": 0
+},
+"razor-claw": {
+"src": "Items/gen5 24x24/razor-claw.png",
+"rank": 0
+},
+"razor-fang": {
+"src": "Items/gen5 24x24/razor-fang.png",
+"rank": 0
+},
+"razz-berry": {
+"src": "Items/gen5 24x24/razz-berry.png",
+"rank": 0
+},
+"reaper-cloth": {
+"src": "Items/gen5 24x24/reaper-cloth.png",
+"rank": 0
+},
+"red-apricorn": {
+"src": "Items/gen5 24x24/red-apricorn.png",
+"rank": 0
+},
+"red-card": {
+"src": "Items/gen5 24x24/red-card.png",
+"rank": 0
+},
+"red-chain": {
+"src": "Items/gen5 24x24/red-chain.png",
+"rank": 0
+},
+"red-flute": {
+"src": "Items/gen5 24x24/red-flute.png",
+"rank": 0
+},
+"red-orb": {
+"src": "Items/gen5 24x24/red-orb.png",
+"rank": 0
+},
+"red-scale": {
+"src": "Items/gen5 24x24/red-scale.png",
+"rank": 0
+},
+"red-scarf": {
+"src": "Items/gen5 24x24/red-scarf.png",
+"rank": 0
+},
+"red-shard": {
+"src": "Items/gen5 24x24/red-shard.png",
+"rank": 0
+},
+"relic-band": {
+"src": "Items/gen5 24x24/relic-band.png",
+"rank": 0
+},
+"relic-copper": {
+"src": "Items/gen5 24x24/relic-copper.png",
+"rank": 0
+},
+"relic-crown": {
+"src": "Items/gen5 24x24/relic-crown.png",
+"rank": 0
+},
+"relic-gold": {
+"src": "Items/gen5 24x24/relic-gold.png",
+"rank": 0
+},
+"relic-silver": {
+"src": "Items/gen5 24x24/relic-silver.png",
+"rank": 0
+},
+"relic-statue": {
+"src": "Items/gen5 24x24/relic-statue.png",
+"rank": 0
+},
+"relic-vase": {
+"src": "Items/gen5 24x24/relic-vase.png",
+"rank": 0
+},
+"repel": {
+"src": "Items/gen5 24x24/repel.png",
+"rank": 0
+},
+"reply-mail": {
+"src": "Items/gen5 24x24/reply-mail.png",
+"rank": 0
+},
+"reset-urge": {
+"src": "Items/gen5 24x24/reset-urge.png",
+"rank": 0
+},
+"resist-wing": {
+"src": "Items/gen5 24x24/resist-wing.png",
+"rank": 0
+},
+"retro-mail": {
+"src": "Items/gen5 24x24/retro-mail.png",
+"rank": 0
+},
+"reveal-glass": {
+"src": "Items/gen5 24x24/reveal-glass.png",
+"rank": 0
+},
+"revival-herb": {
+"src": "Items/gen5 24x24/revival-herb.png",
+"rank": 0
+},
+"revive": {
+"src": "Items/gen5 24x24/revive.png",
+"rank": 0
+},
+"rindo-berry": {
+"src": "Items/gen5 24x24/rindo-berry.png",
+"rank": 0
+},
+"ring-target": {
+"src": "Items/gen5 24x24/ring-target.png",
+"rank": 0
+},
+"rm-1-key": {
+"src": "Items/gen5 24x24/rm-1-key.png",
+"rank": 0
+},
+"rm-2-key": {
+"src": "Items/gen5 24x24/rm-2-key.png",
+"rank": 0
+},
+"rm-4-key": {
+"src": "Items/gen5 24x24/rm-4-key.png",
+"rank": 0
+},
+"rm-6-key": {
+"src": "Items/gen5 24x24/rm-6-key.png",
+"rank": 0
+},
+"rock-gem": {
+"src": "Items/gen5 24x24/rock-gem.png",
+"rank": 0
+},
+"rock-incense": {
+"src": "Items/gen5 24x24/rock-incense.png",
+"rank": 0
+},
+"rocky-helmet": {
+"src": "Items/gen5 24x24/rocky-helmet.png",
+"rank": 0
+},
+"root-fossil": {
+"src": "Items/gen5 24x24/root-fossil.png",
+"rank": 0
+},
+"rose-incense": {
+"src": "Items/gen5 24x24/rose-incense.png",
+"rank": 0
+},
+"rowap-berry": {
+"src": "Items/gen5 24x24/rowap-berry.png",
+"rank": 0
+},
+"rsvp-mail": {
+"src": "Items/gen5 24x24/rsvp-mail.png",
+"rank": 0
+},
+"ruby": {
+"src": "Items/gen5 24x24/ruby.png",
+"rank": 0
+},
+"rule-book": {
+"src": "Items/gen5 24x24/rule-book.png",
+"rank": 0
+},
+"sacred-ash": {
+"src": "Items/gen5 24x24/sacred-ash.png",
+"rank": 0
+},
+"salac-berry": {
+"src": "Items/gen5 24x24/salac-berry.png",
+"rank": 0
+},
+"sapphire": {
+"src": "Items/gen5 24x24/sapphire.png",
+"rank": 0
+},
+"scanner": {
+"src": "Items/gen5 24x24/scanner.png",
+"rank": 0
+},
+"scope-lens": {
+"src": "Items/gen5 24x24/scope-lens.png",
+"rank": 0
+},
+"sea-incense": {
+"src": "Items/gen5 24x24/sea-incense.png",
+"rank": 0
+},
+"seal-bag": {
+"src": "Items/gen5 24x24/seal-bag.png",
+"rank": 0
+},
+"seal-case": {
+"src": "Items/gen5 24x24/seal-case.png",
+"rank": 0
+},
+"secret-key": {
+"src": "Items/gen5 24x24/secret-key.png",
+"rank": 0
+},
+"secret-potion": {
+"src": "Items/gen5 24x24/secret-potion.png",
+"rank": 0
+},
+"shadow-mail": {
+"src": "Items/gen5 24x24/shadow-mail.png",
+"rank": 0
+},
+"sharp-beak": {
+"src": "Items/gen5 24x24/sharp-beak.png",
+"rank": 0
+},
+"shed-shell": {
+"src": "Items/gen5 24x24/shed-shell.png",
+"rank": 0
+},
+"shell-bell": {
+"src": "Items/gen5 24x24/shell-bell.png",
+"rank": 0
+},
+"shiny-charm": {
+"src": "Items/gen5 24x24/shiny-charm.png",
+"rank": 0
+},
+"shiny-stone": {
+"src": "Items/gen5 24x24/shiny-stone.png",
+"rank": 0
+},
+"shoal-salt": {
+"src": "Items/gen5 24x24/shoal-salt.png",
+"rank": 0
+},
+"shoal-shell": {
+"src": "Items/gen5 24x24/shoal-shell.png",
+"rank": 0
+},
+"shock-drive": {
+"src": "Items/gen5 24x24/shock-drive.png",
+"rank": 0
+},
+"shuca-berry": {
+"src": "Items/gen5 24x24/shuca-berry.png",
+"rank": 0
+},
+"silk-scarf": {
+"src": "Items/gen5 24x24/silk-scarf.png",
+"rank": 0
+},
+"silph-scope": {
+"src": "Items/gen5 24x24/silph-scope.png",
+"rank": 0
+},
+"silver-powder": {
+"src": "Items/gen5 24x24/silver-powder.png",
+"rank": 0
+},
+"silver-wing": {
+"src": "Items/gen5 24x24/silver-wing.png",
+"rank": 0
+},
+"sitrus-berry": {
+"src": "Items/gen5 24x24/sitrus-berry.png",
+"rank": 0
+},
+"skull-fossil": {
+"src": "Items/gen5 24x24/skull-fossil.png",
+"rank": 0
+},
+"sky-plate": {
+"src": "Items/gen5 24x24/sky-plate.png",
+"rank": 0
+},
+"slowpoke-tail": {
+"src": "Items/gen5 24x24/slowpoke-tail.png",
+"rank": 0
+},
+"smoke-ball": {
+"src": "Items/gen5 24x24/smoke-ball.png",
+"rank": 0
+},
+"smooth-rock": {
+"src": "Items/gen5 24x24/smooth-rock.png",
+"rank": 0
+},
+"snow-mail": {
+"src": "Items/gen5 24x24/snow-mail.png",
+"rank": 0
+},
+"soda-pop": {
+"src": "Items/gen5 24x24/soda-pop.png",
+"rank": 0
+},
+"soft-sand": {
+"src": "Items/gen5 24x24/soft-sand.png",
+"rank": 0
+},
+"soot-sack": {
+"src": "Items/gen5 24x24/soot-sack.png",
+"rank": 0
+},
+"soothe-bell": {
+"src": "Items/gen5 24x24/soothe-bell.png",
+"rank": 0
+},
+"soul-dew": {
+"src": "Items/gen5 24x24/soul-dew.png",
+"rank": 0
+},
+"space-mail": {
+"src": "Items/gen5 24x24/space-mail.png",
+"rank": 0
+},
+"spell-tag": {
+"src": "Items/gen5 24x24/spell-tag.png",
+"rank": 0
+},
+"spelon-berry": {
+"src": "Items/gen5 24x24/spelon-berry.png",
+"rank": 0
+},
+"splash-plate": {
+"src": "Items/gen5 24x24/splash-plate.png",
+"rank": 0
+},
+"spooky-plate": {
+"src": "Items/gen5 24x24/spooky-plate.png",
+"rank": 0
+},
+"sprayduck": {
+"src": "Items/gen5 24x24/sprayduck.png",
+"rank": 0
+},
+"squirt-bottle": {
+"src": "Items/gen5 24x24/squirt-bottle.png",
+"rank": 0
+},
+"ss-ticket": {
+"src": "Items/gen5 24x24/ss-ticket.png",
+"rank": 0
+},
+"stable-mulch": {
+"src": "Items/gen5 24x24/stable-mulch.png",
+"rank": 0
+},
+"star-piece": {
+"src": "Items/gen5 24x24/star-piece.png",
+"rank": 0
+},
+"stardust": {
+"src": "Items/gen5 24x24/stardust.png",
+"rank": 0
+},
+"starf-berry": {
+"src": "Items/gen5 24x24/starf-berry.png",
+"rank": 0
+},
+"steel-gem": {
+"src": "Items/gen5 24x24/steel-gem.png",
+"rank": 0
+},
+"steel-mail": {
+"src": "Items/gen5 24x24/steel-mail.png",
+"rank": 0
+},
+"stick": {
+"src": "Items/gen5 24x24/stick.png",
+"rank": 0
+},
+"sticky-barb": {
+"src": "Items/gen5 24x24/sticky-barb.png",
+"rank": 0
+},
+"stone-plate": {
+"src": "Items/gen5 24x24/stone-plate.png",
+"rank": 0
+},
+"storage-key": {
+"src": "Items/gen5 24x24/storage-key.png",
+"rank": 0
+},
+"suite-key": {
+"src": "Items/gen5 24x24/suite-key.png",
+"rank": 0
+},
+"sun-stone": {
+"src": "Items/gen5 24x24/sun-stone.png",
+"rank": 0
+},
+"super-potion": {
+"src": "Items/gen5 24x24/super-potion.png",
+"rank": 0
+},
+"super-repel": {
+"src": "Items/gen5 24x24/super-repel.png",
+"rank": 0
+},
+"super-rod": {
+"src": "Items/gen5 24x24/super-rod.png",
+"rank": 0
+},
+"sweet-heart": {
+"src": "Items/gen5 24x24/sweet-heart.png",
+"rank": 0
+},
+"swift-wing": {
+"src": "Items/gen5 24x24/swift-wing.png",
+"rank": 0
+},
+"tamato-berry": {
+"src": "Items/gen5 24x24/tamato-berry.png",
+"rank": 0
+},
+"tanga-berry": {
+"src": "Items/gen5 24x24/tanga-berry.png",
+"rank": 0
+},
+"tea": {
+"src": "Items/gen5 24x24/tea.png",
+"rank": 0
+},
+"teachy-tv": {
+"src": "Items/gen5 24x24/teachy-tv.png",
+"rank": 0
+},
+"thanks-mail": {
+"src": "Items/gen5 24x24/thanks-mail.png",
+"rank": 0
+},
+"thick-club": {
+"src": "Items/gen5 24x24/thick-club.png",
+"rank": 0
+},
+"thunder-stone": {
+"src": "Items/gen5 24x24/thunder-stone.png",
+"rank": 0
+},
+"tidal-bell": {
+"src": "Items/gen5 24x24/tidal-bell.png",
+"rank": 0
+},
+"tiny-mushroom": {
+"src": "Items/gen5 24x24/tiny-mushroom.png",
+"rank": 0
+},
+"tm-bug": {
+"src": "Items/gen5 24x24/tm-bug.png",
+"rank": 0
+},
+"tm-case": {
+"src": "Items/gen5 24x24/tm-case.png",
+"rank": 0
+},
+"tm-dark": {
+"src": "Items/gen5 24x24/tm-dark.png",
+"rank": 0
+},
+"tm-dragon": {
+"src": "Items/gen5 24x24/tm-dragon.png",
+"rank": 0
+},
+"tm-electric": {
+"src": "Items/gen5 24x24/tm-electric.png",
+"rank": 0
+},
+"tm-fighting": {
+"src": "Items/gen5 24x24/tm-fighting.png",
+"rank": 0
+},
+"tm-fire": {
+"src": "Items/gen5 24x24/tm-fire.png",
+"rank": 0
+},
+"tm-flying": {
+"src": "Items/gen5 24x24/tm-flying.png",
+"rank": 0
+},
+"tm-ghost": {
+"src": "Items/gen5 24x24/tm-ghost.png",
+"rank": 0
+},
+"tm-grass": {
+"src": "Items/gen5 24x24/tm-grass.png",
+"rank": 0
+},
+"tm-ground": {
+"src": "Items/gen5 24x24/tm-ground.png",
+"rank": 0
+},
+"tm-ice": {
+"src": "Items/gen5 24x24/tm-ice.png",
+"rank": 0
+},
+"tm-normal": {
+"src": "Items/gen5 24x24/tm-normal.png",
+"rank": 0
+},
+"tm-poison": {
+"src": "Items/gen5 24x24/tm-poison.png",
+"rank": 0
+},
+"tm-psychic": {
+"src": "Items/gen5 24x24/tm-psychic.png",
+"rank": 0
+},
+"tm-rock": {
+"src": "Items/gen5 24x24/tm-rock.png",
+"rank": 0
+},
+"tm-steel": {
+"src": "Items/gen5 24x24/tm-steel.png",
+"rank": 0
+},
+"tm-water": {
+"src": "Items/gen5 24x24/tm-water.png",
+"rank": 0
+},
+"town-map": {
+"src": "Items/gen5 24x24/town-map.png",
+"rank": 0
+},
+"toxic-orb": {
+"src": "Items/gen5 24x24/toxic-orb.png",
+"rank": 0
+},
+"toxic-plate": {
+"src": "Items/gen5 24x24/toxic-plate.png",
+"rank": 0
+},
+"tri-pass": {
+"src": "Items/gen5 24x24/tri-pass.png",
+"rank": 0
+},
+"tropic-mail": {
+"src": "Items/gen5 24x24/tropic-mail.png",
+"rank": 0
+},
+"tunnel-mail": {
+"src": "Items/gen5 24x24/tunnel-mail.png",
+"rank": 0
+},
+"twisted-spoon": {
+"src": "Items/gen5 24x24/twisted-spoon.png",
+"rank": 0
+},
+"unown-report": {
+"src": "Items/gen5 24x24/unown-report.png",
+"rank": 0
+},
+"up-grade": {
+"src": "Items/gen5 24x24/up-grade.png",
+"rank": 0
+},
+"vs-recorder": {
+"src": "Items/gen5 24x24/vs-recorder.png",
+"rank": 0
+},
+"vs-seeker": {
+"src": "Items/gen5 24x24/vs-seeker.png",
+"rank": 0
+},
+"wacan-berry": {
+"src": "Items/gen5 24x24/wacan-berry.png",
+"rank": 0
+},
+"wailmer-pail": {
+"src": "Items/gen5 24x24/wailmer-pail.png",
+"rank": 0
+},
+"water-gem": {
+"src": "Items/gen5 24x24/water-gem.png",
+"rank": 0
+},
+"water-stone": {
+"src": "Items/gen5 24x24/water-stone.png",
+"rank": 0
+},
+"watmel-berry": {
+"src": "Items/gen5 24x24/watmel-berry.png",
+"rank": 0
+},
+"wave-incense": {
+"src": "Items/gen5 24x24/wave-incense.png",
+"rank": 0
+},
+"wave-mail": {
+"src": "Items/gen5 24x24/wave-mail.png",
+"rank": 0
+},
+"wepear-berry": {
+"src": "Items/gen5 24x24/wepear-berry.png",
+"rank": 0
+},
+"white-apricorn": {
+"src": "Items/gen5 24x24/white-apricorn.png",
+"rank": 0
+},
+"white-flute": {
+"src": "Items/gen5 24x24/white-flute.png",
+"rank": 0
+},
+"white-herb": {
+"src": "Items/gen5 24x24/white-herb.png",
+"rank": 0
+},
+"wide-lens": {
+"src": "Items/gen5 24x24/wide-lens.png",
+"rank": 0
+},
+"wiki-berry": {
+"src": "Items/gen5 24x24/wiki-berry.png",
+"rank": 0
+},
+"wise-glasses": {
+"src": "Items/gen5 24x24/wise-glasses.png",
+"rank": 0
+},
+"wood-mail": {
+"src": "Items/gen5 24x24/wood-mail.png",
+"rank": 0
+},
+"works-key": {
+"src": "Items/gen5 24x24/works-key.png",
+"rank": 0
+},
+"x-accuracy-2": {
+"src": "Items/gen5 24x24/x-accuracy-2.png",
+"rank": 0
+},
+"x-accuracy-3": {
+"src": "Items/gen5 24x24/x-accuracy-3.png",
+"rank": 0
+},
+"x-accuracy-6": {
+"src": "Items/gen5 24x24/x-accuracy-6.png",
+"rank": 0
+},
+"x-accuracy": {
+"src": "Items/gen5 24x24/x-accuracy.png",
+"rank": 0
+},
+"x-attack-2": {
+"src": "Items/gen5 24x24/x-attack-2.png",
+"rank": 0
+},
+"x-attack-3": {
+"src": "Items/gen5 24x24/x-attack-3.png",
+"rank": 0
+},
+"x-attack-6": {
+"src": "Items/gen5 24x24/x-attack-6.png",
+"rank": 0
+},
+"x-attack": {
+"src": "Items/gen5 24x24/x-attack.png",
+"rank": 0
+},
+"x-defense-2": {
+"src": "Items/gen5 24x24/x-defense-2.png",
+"rank": 0
+},
+"x-defense-3": {
+"src": "Items/gen5 24x24/x-defense-3.png",
+"rank": 0
+},
+"x-defense-6": {
+"src": "Items/gen5 24x24/x-defense-6.png",
+"rank": 0
+},
+"x-defense": {
+"src": "Items/gen5 24x24/x-defense.png",
+"rank": 0
+},
+"x-sp-atk-2": {
+"src": "Items/gen5 24x24/x-sp-atk-2.png",
+"rank": 0
+},
+"x-sp-atk-3": {
+"src": "Items/gen5 24x24/x-sp-atk-3.png",
+"rank": 0
+},
+"x-sp-atk-6": {
+"src": "Items/gen5 24x24/x-sp-atk-6.png",
+"rank": 0
+},
+"x-sp-atk": {
+"src": "Items/gen5 24x24/x-sp-atk.png",
+"rank": 0
+},
+"x-sp-def-2": {
+"src": "Items/gen5 24x24/x-sp-def-2.png",
+"rank": 0
+},
+"x-sp-def-3": {
+"src": "Items/gen5 24x24/x-sp-def-3.png",
+"rank": 0
+},
+"x-sp-def-6": {
+"src": "Items/gen5 24x24/x-sp-def-6.png",
+"rank": 0
+},
+"x-sp-def": {
+"src": "Items/gen5 24x24/x-sp-def.png",
+"rank": 0
+},
+"x-speed-2": {
+"src": "Items/gen5 24x24/x-speed-2.png",
+"rank": 0
+},
+"x-speed-3": {
+"src": "Items/gen5 24x24/x-speed-3.png",
+"rank": 0
+},
+"x-speed-6": {
+"src": "Items/gen5 24x24/x-speed-6.png",
+"rank": 0
+},
+"x-speed": {
+"src": "Items/gen5 24x24/x-speed.png",
+"rank": 0
+},
+"xtransceiver": {
+"src": "Items/gen5 24x24/xtransceiver.png",
+"rank": 0
+},
+"yache-berry": {
+"src": "Items/gen5 24x24/yache-berry.png",
+"rank": 0
+},
+"yellow-apricorn": {
+"src": "Items/gen5 24x24/yellow-apricorn.png",
+"rank": 0
+},
+"yellow-flute": {
+"src": "Items/gen5 24x24/yellow-flute.png",
+"rank": 0
+},
+"yellow-scarf": {
+"src": "Items/gen5 24x24/yellow-scarf.png",
+"rank": 0
+},
+"yellow-shard": {
+"src": "Items/gen5 24x24/yellow-shard.png",
+"rank": 0
+},
+"zap-plate": {
+"src": "Items/gen5 24x24/zap-plate.png",
+"rank": 0
+},
+"zinc": {
+"src": "Items/gen5 24x24/zinc.png",
+"rank": 0
+},
+"zoom-lens": {
+"src": "Items/gen5 24x24/zoom-lens.png",
+"rank": 0
+},
+"cherish-ball": {
+"src": "Gen5 Balls 24x24/cherish-ball.png",
+"rank": 1
+},
+"dive-ball": {
+"src": "Gen5 Balls 24x24/dive-ball.png",
+"rank": 1
+},
+"dream-ball": {
+"src": "Gen5 Balls 24x24/dream-ball.png",
+"rank": 1
+},
+"dusk-ball": {
+"src": "Gen5 Balls 24x24/dusk-ball.png",
+"rank": 1
+},
+"fast-ball": {
+"src": "Gen5 Balls 24x24/fast-ball.png",
+"rank": 1
+},
+"friend-ball": {
+"src": "Gen5 Balls 24x24/friend-ball.png",
+"rank": 1
+},
+"great-ball": {
+"src": "Gen5 Balls 24x24/great-ball.png",
+"rank": 1
+},
+"heal-ball": {
+"src": "Gen5 Balls 24x24/heal-ball.png",
+"rank": 1
+},
+"heavy-ball": {
+"src": "Gen5 Balls 24x24/heavy-ball.png",
+"rank": 1
+},
+"level-ball": {
+"src": "Gen5 Balls 24x24/level-ball.png",
+"rank": 1
+},
+"love-ball": {
+"src": "Gen5 Balls 24x24/love-ball.png",
+"rank": 1
+},
+"lure-ball": {
+"src": "Gen5 Balls 24x24/lure-ball.png",
+"rank": 1
+},
+"luxury-ball": {
+"src": "Gen5 Balls 24x24/luxury-ball.png",
+"rank": 1
+},
+"master-ball": {
+"src": "Gen5 Balls 24x24/master-ball.png",
+"rank": 1
+},
+"moon-ball": {
+"src": "Gen5 Balls 24x24/moon-ball.png",
+"rank": 1
+},
+"nest-ball": {
+"src": "Gen5 Balls 24x24/nest-ball.png",
+"rank": 1
+},
+"net-ball": {
+"src": "Gen5 Balls 24x24/net-ball.png",
+"rank": 1
+},
+"park-ball": {
+"src": "Gen5 Balls 24x24/park-ball.png",
+"rank": 1
+},
+"poke-ball": {
+"src": "Gen5 Balls 24x24/poke-ball.png",
+"rank": 1
+},
+"premier-ball": {
+"src": "Gen5 Balls 24x24/premier-ball.png",
+"rank": 1
+},
+"quick-ball": {
+"src": "Gen5 Balls 24x24/quick-ball.png",
+"rank": 1
+},
+"repeat-ball": {
+"src": "Gen5 Balls 24x24/repeat-ball.png",
+"rank": 1
+},
+"safari-ball": {
+"src": "Gen5 Balls 24x24/safari-ball.png",
+"rank": 1
+},
+"sport-ball": {
+"src": "Gen5 Balls 24x24/sport-ball.png",
+"rank": 1
+},
+"timer-ball": {
+"src": "Gen5 Balls 24x24/timer-ball.png",
+"rank": 1
+},
+"ultra-ball": {
+"src": "Gen5 Balls 24x24/ultra-ball.png",
+"rank": 1
+},
+"ability-capsule": {
+"src": "Items/items 30x30/ability-capsule.png",
+"rank": 2
+},
+"abomasite": {
+"src": "Items/items 30x30/abomasite.png",
+"rank": 2
+},
+"absolite": {
+"src": "Items/items 30x30/absolite.png",
+"rank": 2
+},
+"adventure-rules": {
+"src": "Items/items 30x30/adventure-rules.png",
+"rank": 2
+},
+"aerodactylite": {
+"src": "Items/items 30x30/aerodactylite.png",
+"rank": 2
+},
+"aggronite": {
+"src": "Items/items 30x30/aggronite.png",
+"rank": 2
+},
+"alakazite": {
+"src": "Items/items 30x30/alakazite.png",
+"rank": 2
+},
+"amaze-mulch": {
+"src": "Items/items 30x30/amaze-mulch.png",
+"rank": 2
+},
+"ampharosite": {
+"src": "Items/items 30x30/ampharosite.png",
+"rank": 2
+},
+"assault-vest": {
+"src": "Items/items 30x30/assault-vest.png",
+"rank": 2
+},
+"banettite": {
+"src": "Items/items 30x30/banettite.png",
+"rank": 2
+},
+"bicycle-turquoise": {
+"src": "Items/items 30x30/bicycle-turquoise.png",
+"rank": 2
+},
+"bicycle-yellow": {
+"src": "Items/items 30x30/bicycle-yellow.png",
+"rank": 2
+},
+"blastoisinite": {
+"src": "Items/items 30x30/blastoisinite.png",
+"rank": 2
+},
+"blazikenite": {
+"src": "Items/items 30x30/blazikenite.png",
+"rank": 2
+},
+"boost-mulch": {
+"src": "Items/items 30x30/boost-mulch.png",
+"rank": 2
+},
+"charizardite-x": {
+"src": "Items/items 30x30/charizardite-x.png",
+"rank": 2
+},
+"charizardite-y": {
+"src": "Items/items 30x30/charizardite-y.png",
+"rank": 2
+},
+"common-stone": {
+"src": "Items/items 30x30/common-stone.png",
+"rank": 2
+},
+"discount-coupon": {
+"src": "Items/items 30x30/discount-coupon.png",
+"rank": 2
+},
+"dropped-item-red": {
+"src": "Items/items 30x30/dropped-item-red.png",
+"rank": 2
+},
+"dropped-item-yellow": {
+"src": "Items/items 30x30/dropped-item-yellow.png",
+"rank": 2
+},
+"elevator-key": {
+"src": "Items/items 30x30/elevator-key.png",
+"rank": 2
+},
+"fairy-gem": {
+"src": "Items/items 30x30/fairy-gem.png",
+"rank": 2
+},
+"garchompite": {
+"src": "Items/items 30x30/garchompite.png",
+"rank": 2
+},
+"gardevoirite": {
+"src": "Items/items 30x30/gardevoirite.png",
+"rank": 2
+},
+"gengarite": {
+"src": "Items/items 30x30/gengarite.png",
+"rank": 2
+},
+"gyaradosite": {
+"src": "Items/items 30x30/gyaradosite.png",
+"rank": 2
+},
+"heracronite": {
+"src": "Items/items 30x30/heracronite.png",
+"rank": 2
+},
+"holo-caster-green": {
+"src": "Items/items 30x30/holo-caster-green.png",
+"rank": 2
+},
+"holo-caster-red": {
+"src": "Items/items 30x30/holo-caster-red.png",
+"rank": 2
+},
+"holo-caster": {
+"src": "Items/items 30x30/holo-caster.png",
+"rank": 2
+},
+"honor-of-kalos": {
+"src": "Items/items 30x30/honor-of-kalos.png",
+"rank": 2
+},
+"houndoominite": {
+"src": "Items/items 30x30/houndoominite.png",
+"rank": 2
+},
+"intriguing-stone": {
+"src": "Items/items 30x30/intriguing-stone.png",
+"rank": 2
+},
+"jaw-fossil": {
+"src": "Items/items 30x30/jaw-fossil.png",
+"rank": 2
+},
+"kangaskhanite": {
+"src": "Items/items 30x30/kangaskhanite.png",
+"rank": 2
+},
+"kee-berry": {
+"src": "Items/items 30x30/kee-berry.png",
+"rank": 2
+},
+"lens-case": {
+"src": "Items/items 30x30/lens-case.png",
+"rank": 2
+},
+"looker-ticket": {
+"src": "Items/items 30x30/looker-ticket.png",
+"rank": 2
+},
+"lucarionite": {
+"src": "Items/items 30x30/lucarionite.png",
+"rank": 2
+},
+"luminous-moss": {
+"src": "Items/items 30x30/luminous-moss.png",
+"rank": 2
+},
+"lumiose-galette": {
+"src": "Items/items 30x30/lumiose-galette.png",
+"rank": 2
+},
+"manectite": {
+"src": "Items/items 30x30/manectite.png",
+"rank": 2
+},
+"maranga-berry": {
+"src": "Items/items 30x30/maranga-berry.png",
+"rank": 2
+},
+"mawilite": {
+"src": "Items/items 30x30/mawilite.png",
+"rank": 2
+},
+"medichamite": {
+"src": "Items/items 30x30/medichamite.png",
+"rank": 2
+},
+"mega-ring": {
+"src": "Items/items 30x30/mega-ring.png",
+"rank": 2
+},
+"mewtwonite-x": {
+"src": "Items/items 30x30/mewtwonite-x.png",
+"rank": 2
+},
+"mewtwonite-y": {
+"src": "Items/items 30x30/mewtwonite-y.png",
+"rank": 2
+},
+"pinsirite": {
+"src": "Items/items 30x30/pinsirite.png",
+"rank": 2
+},
+"pixie-plate": {
+"src": "Items/items 30x30/pixie-plate.png",
+"rank": 2
+},
+"power-plant-pass": {
+"src": "Items/items 30x30/power-plant-pass.png",
+"rank": 2
+},
+"profs-letter": {
+"src": "Items/items 30x30/profs-letter.png",
+"rank": 2
+},
+"rich-mulch": {
+"src": "Items/items 30x30/rich-mulch.png",
+"rank": 2
+},
+"roller-skates": {
+"src": "Items/items 30x30/roller-skates.png",
+"rank": 2
+},
+"roseli-berry": {
+"src": "Items/items 30x30/roseli-berry.png",
+"rank": 2
+},
+"sachet": {
+"src": "Items/items 30x30/sachet.png",
+"rank": 2
+},
+"safety-goggles": {
+"src": "Items/items 30x30/safety-goggles.png",
+"rank": 2
+},
+"sail-fossil": {
+"src": "Items/items 30x30/sail-fossil.png",
+"rank": 2
+},
+"scizorite": {
+"src": "Items/items 30x30/scizorite.png",
+"rank": 2
+},
+"shalour-sable": {
+"src": "Items/items 30x30/shalour-sable.png",
+"rank": 2
+},
+"snowball": {
+"src": "Items/items 30x30/snowball.png",
+"rank": 2
+},
+"sprinklotad": {
+"src": "Items/items 30x30/sprinklotad.png",
+"rank": 2
+},
+"strange-souvenir": {
+"src": "Items/items 30x30/strange-souvenir.png",
+"rank": 2
+},
+"surprise-mulch": {
+"src": "Items/items 30x30/surprise-mulch.png",
+"rank": 2
+},
+"tm-fairy": {
+"src": "Items/items 30x30/tm-fairy.png",
+"rank": 2
+},
+"tmv-pass": {
+"src": "Items/items 30x30/tmv-pass.png",
+"rank": 2
+},
+"travel-trunk-gold": {
+"src": "Items/items 30x30/travel-trunk-gold.png",
+"rank": 2
+},
+"travel-trunk-silver": {
+"src": "Items/items 30x30/travel-trunk-silver.png",
+"rank": 2
+},
+"tyranitarite": {
+"src": "Items/items 30x30/tyranitarite.png",
+"rank": 2
+},
+"unknown": {
+"src": "Items/items 30x30/unknown.png",
+"rank": 2
+},
+"venusaurite": {
+"src": "Items/items 30x30/venusaurite.png",
+"rank": 2
+},
+"weakness-policy": {
+"src": "Items/items 30x30/weakness-policy.png",
+"rank": 2
+},
+"whipped-dream": {
+"src": "Items/items 30x30/whipped-dream.png",
+"rank": 2
+},
+"xtransceiver-red": {
+"src": "Items/items 30x30/xtransceiver-red.png",
+"rank": 2
+},
+"xtransceiver-yellow": {
+"src": "Items/items 30x30/xtransceiver-yellow.png",
+"rank": 2
+},
+"itemfinder": {
+"src": "Items/gen3 24X24/itemfinder.png",
+"rank": 4
+}
+}

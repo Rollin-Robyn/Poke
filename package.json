@@ -1,0 +1,30 @@
+{
+  "name": "pocket-tycoon",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A browser Pok\u00e9mon tycoon / incremental game using the Gen 5 sprite set.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "data": "node scripts/build-data.mjs",
+    "balance": "node scripts/balance.mjs",
+    "smoke": "esbuild scripts/smoke.tsx --bundle --format=esm --platform=node --jsx=automatic --loader:.json=json --outfile=node_modules/.cache/smoke.mjs --log-level=error && node node_modules/.cache/smoke.mjs",
+    "checks": "node scripts/checks.mjs",
+    "verify": "npm run typecheck && npm run checks && npm run legacy && npm run smoke && npm run build",
+    "legacy": "esbuild scripts/legacy.tsx --bundle --format=esm --platform=node --jsx=automatic --loader:.json=json --outfile=node_modules/.cache/legacy.mjs --log-level=error && node node_modules/.cache/legacy.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
