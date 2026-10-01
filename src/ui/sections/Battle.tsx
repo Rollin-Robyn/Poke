@@ -4,7 +4,7 @@ import { Bar, ItemSprite, Modal, Panel, Sprite, TypeTag } from '../components';
 import { TYPE_COLORS, typeMultiplier } from '../../game/typechart';
 import { MAX_TEAM } from '../../game/state';
 import {
-  BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, ballContextFor, biomeLevelRange, entry, fmt,
+  BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, LEGENDARY_MIN_WILD_LEVEL, ballContextFor, biomeLevelRange, entry, fmt,
   movesFor, movesForMon, statsAt, tierOf, effectiveSpeed,
 } from './shared';
 
@@ -59,6 +59,15 @@ export function Battle() {
           <button className="btn sm" onClick={() => setPickTeam(true)}>Team ({b.team.length}/{MAX_TEAM})</button>
           <button className="btn sm" onClick={() => dispatch({ type: 'HEAL_TEAM' })}>Heal</button>
         </div>
+      </div>
+
+      <div className="tiny dim" style={{ marginTop: -6 }}>
+        Evolved forms only turn up once the wild range reaches the level they evolve at (Charmeleon needs Lv.16).{' '}
+        {biome.special
+          ? 'Legendaries can appear on this special route.'
+          : hi >= LEGENDARY_MIN_WILD_LEVEL
+            ? 'This rotation is high enough for legendaries to roam.'
+            : `Legendaries only show up on special routes, or once wild levels reach Lv.${LEGENDARY_MIN_WILD_LEVEL}.`}
       </div>
 
       <Panel>

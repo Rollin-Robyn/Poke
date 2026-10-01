@@ -41,11 +41,22 @@ export function capacityUpgradeCost(def: HabitatDef, level: number): number {
   return Math.ceil(base * Math.pow(1.55, Math.max(0, level)));
 }
 
+/**
+ * Rarity upgrades: an affordable first step, then a steep climb.
+ *
+ * Opening the rare tier is the thing a young reserve needs first, so the first
+ * step costs only a few minutes of income. Every step after it costs
+ * RARITY_COST_GROWTH times the one before (it used to be 2.15 times, from a
+ * base of 18 K), which keeps epic and legendary housing a late-game decision:
+ *
+ *   monotype   2.5 K  →  12.5 K  →  62.5 K     (uncommon → rare → epic → legendary)
+ *   multitype  150 K  →  750 K   →  3.75 M
+ */
+export const RARITY_COST_GROWTH = 5;
+
 export function rarityUpgradeCost(def: HabitatDef, level: number): number {
-  // Rarity is the premium habitat track: it is deliberately much dearer than
-  // adding room, because it unlocks the reserve's best long-term output.
-  const base = def.cls === 'mono' ? 18_000 : 1_000_000;
-  return Math.ceil(base * Math.pow(2.15, Math.max(0, level)));
+  const base = def.cls === 'mono' ? 2_500 : 150_000;
+  return Math.ceil(base * Math.pow(RARITY_COST_GROWTH, Math.max(0, level)));
 }
 
 /** Legacy name used by v1 tooling; it now means a capacity upgrade only. */

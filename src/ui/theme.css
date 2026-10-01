@@ -291,6 +291,60 @@ input[type='range'] { accent-color: var(--gold); }
 }
 .starter-card:hover { transform: translateY(-3px); border-color: var(--gold); }
 
+/* ------------------------------------------------------------ hatch popup */
+/* The egg wobbles, flashes and gives way to whatever hatched. Everything is
+   timed from CSS so the popup needs no state of its own. */
+.hatch-stage {
+  position: relative; height: 178px; display: grid; place-items: center; overflow: hidden;
+  border-radius: 12px; border: 1px solid var(--rar, var(--line-2));
+  background:
+    radial-gradient(70% 70% at 50% 62%, var(--glow, rgba(255,255,255,.18)), transparent 72%),
+    rgba(0, 0, 0, .28);
+}
+.hatch-egg { position: absolute; width: 84px; height: 84px; animation: egg-wobble .9s ease-in-out both, egg-vanish .3s ease-out .9s both; }
+.hatch-mon { animation: mon-pop .55s cubic-bezier(.2, 1.5, .4, 1) .95s both; filter: drop-shadow(0 0 14px var(--glow, transparent)); }
+.hatch-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; animation: hatch-flash .55s ease-out .88s; }
+.hatch-info { animation: hatch-fade .45s ease-out 1.15s both; }
+.hatch-name { font-size: 22px; font-weight: 800; margin-top: 12px; }
+.hatch-spark { position: absolute; font-size: 18px; opacity: 0; animation: spark 1.6s ease-in-out 1.2s infinite; }
+.hatch-spark.s1 { left: 16%; top: 22%; }
+.hatch-spark.s2 { right: 14%; top: 34%; animation-delay: 1.5s; }
+.hatch-spark.s3 { left: 30%; bottom: 14%; animation-delay: 1.8s; }
+@keyframes egg-wobble {
+  0%, 100% { transform: rotate(0); } 15% { transform: rotate(-12deg); } 30% { transform: rotate(10deg); }
+  45% { transform: rotate(-14deg); } 60% { transform: rotate(12deg); } 75% { transform: rotate(-8deg); }
+}
+@keyframes egg-vanish { to { opacity: 0; transform: scale(1.35); } }
+@keyframes mon-pop { from { opacity: 0; transform: scale(.2); filter: brightness(4); } to { opacity: 1; transform: scale(1); } }
+@keyframes hatch-flash { from { opacity: .85; } to { opacity: 0; } }
+@keyframes hatch-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes spark { 0%, 100% { opacity: 0; transform: scale(.5); } 50% { opacity: 1; transform: scale(1.15) rotate(12deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .hatch-egg, .hatch-flash { display: none; }
+  .hatch-mon, .hatch-info, .hatch-spark { animation: none; opacity: 1; }
+}
+
+/* ---------------------------------------------------------------- explore */
+.explore-wrap {
+  position: relative; display: grid; place-items: center; overflow: hidden;
+  background: #0b0f16; border-radius: 12px; border: 1px solid var(--line-2);
+}
+.explore-canvas {
+  display: block; max-width: 100%; height: auto; outline: none;
+  image-rendering: pixelated; transition: filter .25s;
+}
+.explore-canvas.dim { filter: brightness(.55) saturate(.8); }
+.explore-loading { position: absolute; inset: 0; display: grid; place-items: center; }
+.explore-fight { border-color: rgba(240, 113, 120, .5); }
+.dpad {
+  display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(2, 34px); gap: 4px;
+  touch-action: none; user-select: none;
+}
+.dpad .up { grid-column: 2; grid-row: 1; }
+.dpad .left { grid-column: 1; grid-row: 2; }
+.dpad .down { grid-column: 2; grid-row: 2; }
+.dpad .right { grid-column: 3; grid-row: 2; }
+
 /* --------------------------------------------------------------- dex grid */
 .dex-cell {
   aspect-ratio: 1/1; border-radius: 11px; border: 1px solid var(--line);

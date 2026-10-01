@@ -18,7 +18,10 @@ import { Battle } from '../src/ui/sections/Battle';
 import { Events } from '../src/ui/sections/Events';
 import { Casino } from '../src/ui/sections/Casino';
 import { Resort } from '../src/ui/sections/Resort';
-import { createInitialState, simulate, makeMon, syncBattleTeam } from '../src/game/reducer';
+import { Explore } from '../src/ui/sections/Explore';
+import { HatchReveal, MoveLearnPrompt } from '../src/ui/sections/Reveals';
+import { createInitialState, simulate, makeMon, startEncounter, syncBattleTeam } from '../src/game/reducer';
+import { MOVES, learnsetOf } from '../src/game/battle';
 import { HABITAT_BY_ID, MONO_HABITATS, MULTI_HABITATS } from '../src/game/content';
 import { DEX } from '../src/game/dex';
 import { habitatSlots } from '../src/game/state';
@@ -116,6 +119,25 @@ function richState(): GameState {
   s.battle.biomeId = 'cave';
   syncBattleTeam(s);
   simulate(s, 600);
+
+  // a hatch waiting for its popup, and a monster that wants a fifth move
+  s.hatchQueue = [s.mons[1].uid, s.mons[3].uid];
+  const learner = s.mons[2];
+  const moves = learnsetOf(learner.species).map((x) => x.move.id);
+  learner.moves = moves.slice(0, 4);
+  s.pendingMoves = [{ uid: learner.uid, moveId: moves[4] }];
+  if (!MOVES[moves[4]]) throw new Error('the smoke save needs a fifth move');
+  return s;
+}
+
+/** The same save, but standing in the tall grass facing a wild monster. */
+function fightingState(): GameState {
+  const s = richState();
+  s.hatchQueue = [];
+  s.pendingMoves = [];
+  s.battle.enemy = null;
+  s.battle.enemySpec = null;
+  startEncounter(s, { biomeId: 'meadow', via: 'explore' });
   return s;
 }
 
@@ -132,12 +154,17 @@ const screens: [string, React.FC<never>][] = [
   ['Events', Events as unknown as React.FC<never>],
   ['Casino', Casino as unknown as React.FC<never>],
   ['Resort', Resort as unknown as React.FC<never>],
+  ['Explore', Explore as unknown as React.FC<never>],
+  ['HatchReveal', HatchReveal as unknown as React.FC<never>],
+  ['MoveLearnPrompt', MoveLearnPrompt as unknown as React.FC<never>],
 ];
 
 // The provider loads its own state; seed localStorage so it picks ours up.
 store.set('pocket-tycoon-save-v1', JSON.stringify({ ...state, lastSaved: Date.now() }));
 
 let failures = 0;
+
+let popupEmpty = false;
 
 function render(label: string, Screen: React.FC<never>, extra?: Record<string, unknown>): void {
   try {
@@ -148,7 +175,9 @@ function render(label: string, Screen: React.FC<never>, extra?: Record<string, u
         React.createElement(Screen as React.FC, extra as never),
       ),
     );
-    const ok = html.length > 200;
+    // the two popups legitimately render nothing when there is nothing to show
+    const popup = label === 'HatchReveal' || label === 'MoveLearnPrompt';
+    const ok = html.length > 200 || (popup && html.length === 0 && popupEmpty);
     console.log(`${ok ? '  ok  ' : ' WARN '} ${label.padEnd(20)} ${html.length} bytes`);
     if (!ok) failures++;
   } catch (err) {
@@ -166,12 +195,19 @@ render('Dashboard(go)', Dashboard as unknown as React.FC<never>, { go: () => {} 
 // ---- pass 2: a brand new save, before the starter is chosen ---------------
 // Screens have to survive empty collections (no habitats, no monsters, no eggs).
 console.log('\nnew save (nothing unlocked yet)');
+popupEmpty = true;
 store.set(
   'pocket-tycoon-save-v1',
   JSON.stringify({ ...createInitialState(), lastSaved: Date.now() }),
 );
 for (const [name, Screen] of screens) render(name, Screen);
 render('Dashboard(go)', Dashboard as unknown as React.FC<never>, { go: () => {} });
+
+// ---- pass 3: in the middle of a fight met in the tall grass ---------------
+console.log('\nexploring, with a wild monster from the grass');
+store.set('pocket-tycoon-save-v1', JSON.stringify({ ...fightingState(), lastSaved: Date.now() }));
+render('Explore(fight)', Explore as unknown as React.FC<never>, { go: () => {} });
+render('Battle(fight)', Battle as unknown as React.FC<never>);
 
 console.log(failures === 0 ? '\nall screens rendered' : `\n${failures} screen(s) failed`);
 if (failures) process.exit(1);

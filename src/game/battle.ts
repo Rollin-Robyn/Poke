@@ -143,10 +143,10 @@ export const MOVES: Record<string, MoveDef> = (moveData as unknown as { moves: R
 export const MOVES_PER_MON = 4;
 
 /**
- * The moves a monster knows right now: everything in its species' learnset up
- * to its level, keeping only the four it learned most recently (older moves
- * are forgotten, exactly as in the games). A freshly hatched monster therefore
- * knows one or two weak moves and grows into the rest.
+ * The moves a species knows at a given level: everything in its learnset up to
+ * that level, keeping only the four learned most recently (older moves are
+ * forgotten, exactly as in the games). Wild monsters, which are never stored,
+ * use this directly; a stored monster starts from it.
  */
 export function movesFor(species: string, level = MAX_LEVEL): MoveDef[] {
   const learnset = entry(species).learnset ?? [];
@@ -161,17 +161,96 @@ export function movesFor(species: string, level = MAX_LEVEL): MoveDef[] {
     .filter(Boolean);
 }
 
-/** A real monster can also carry moves inherited through breeding. */
-export function movesForMon(mon: Mon): MoveDef[] {
+/**
+ * The moves a monster knows when it is created: everything in its species'
+ * learnset up to its level, plus anything inherited through breeding, keeping
+ * only the four it picked up most recently. A freshly hatched monster knows
+ * one or two weak moves and grows into the rest.
+ *
+ * After creation the moves are *stored* on the monster (`mon.moves`) and only
+ * change through learning, replacing or relearning.
+ */
+export function startingMoves(
+  species: string,
+  level: number,
+  inherited: { eggMoves?: string[]; tmMoves?: string[] } = {},
+): string[] {
   const ids = [
-    ...movesFor(mon.species, mon.level).map((m) => m.id),
-    ...(mon.eggMoves ?? []),
-    ...(mon.tmMoves ?? []),
+    ...movesFor(species, level).map((m) => m.id),
+    ...(inherited.eggMoves ?? []),
+    ...(inherited.tmMoves ?? []),
   ];
-  return [...new Set(ids)]
-    .slice(-MOVES_PER_MON)
-    .map((id) => MOVES[id])
-    .filter(Boolean);
+  return [...new Set(ids)].filter((id) => MOVES[id]).slice(-MOVES_PER_MON);
+}
+
+/** The ids of the moves a monster knows, whatever shape its save is in. */
+export function knownMoveIds(mon: Mon, level = mon.level): string[] {
+  const stored = (mon.moves ?? []).filter((id) => MOVES[id]);
+  if (stored.length) return [...new Set(stored)].slice(0, MOVES_PER_MON);
+  return startingMoves(mon.species, level, mon);
+}
+
+/** The moves a monster knows right now. */
+export function movesForMon(mon: Mon): MoveDef[] {
+  return knownMoveIds(mon).map((id) => MOVES[id]).filter(Boolean);
+}
+
+/**
+ * Moves the species picks up as it grows from `fromLevel` (exclusive) up to
+ * `toLevel` (inclusive), in learnset order.
+ */
+export function movesLearnedBetween(species: string, fromLevel: number, toLevel: number): MoveDef[] {
+  const seen = new Set<string>();
+  const out: MoveDef[] = [];
+  for (const [id, at] of entry(species).learnset ?? []) {
+    if (at <= fromLevel || at > toLevel || seen.has(id) || !MOVES[id]) continue;
+    seen.add(id);
+    out.push(MOVES[id]);
+  }
+  return out;
+}
+
+/** What a move tutor charges to teach a move again (rounded to the nearest 10). */
+export const RELEARN_BASE_COST = 120;
+export const RELEARN_COST_PER_POWER = 4;
+export const RELEARN_COST_PER_LEVEL = 12;
+
+export function relearnCost(move: MoveDef, learnedAtLevel: number): number {
+  const raw =
+    RELEARN_BASE_COST +
+    RELEARN_COST_PER_POWER * Math.max(20, move.power) +
+    RELEARN_COST_PER_LEVEL * Math.max(1, learnedAtLevel);
+  return Math.round(raw / 10) * 10;
+}
+
+export interface RelearnOption {
+  move: MoveDef;
+  /** the level the species learns it at (1 for inherited moves) */
+  level: number;
+  cost: number;
+}
+
+/**
+ * Every move a monster could be taught again: what its level has already
+ * unlocked in the learnset (so moves it forgot *and* moves it skipped) plus
+ * anything it inherited, minus what it knows now. Weakest first, like the dex.
+ */
+export function relearnableMoves(mon: Mon): RelearnOption[] {
+  const known = new Set(knownMoveIds(mon));
+  const seen = new Set<string>();
+  const out: RelearnOption[] = [];
+  const add = (id: string, level: number) => {
+    const move = MOVES[id];
+    if (!move || known.has(id) || seen.has(id)) return;
+    seen.add(id);
+    out.push({ move, level, cost: relearnCost(move, level) });
+  };
+  for (const [id, at] of entry(mon.species).learnset ?? []) {
+    if (at <= mon.level) add(id, at);
+  }
+  for (const id of mon.eggMoves ?? []) add(id, 1);
+  for (const id of mon.tmMoves ?? []) add(id, 1);
+  return out;
 }
 
 /** Every move a species can learn over its whole life, weakest first. */
@@ -216,16 +295,81 @@ export function biomeLevelRange(_biome: BiomeDef, biomesPassed: number): [number
   return [BASE_BIOME_LEVEL_RANGE[0] + bonus, BASE_BIOME_LEVEL_RANGE[1] + bonus];
 }
 
+// ------------------------------------------------------ who can turn up wild --
+/**
+ * Legendary-rarity species only roam ordinary routes once the wild level band
+ * has climbed this high (about eleven biomes into a run). Special routes are
+ * the exception: they can hold one at any level.
+ */
+export const LEGENDARY_MIN_WILD_LEVEL = 50;
+
+/**
+ * Evolutions without a level of their own (stones, trades, friendship, a known
+ * move) still need to be "old enough" to plausibly exist, so they use a floor
+ * by evolution stage: a first evolution from Lv.20, a second one from Lv.36.
+ * A chain always takes the highest floor along the way.
+ */
+export const NON_LEVEL_EVOLUTION_FLOOR: Record<number, number> = { 1: 20, 2: 36 };
+
+const wildFloorCache = new Map<string, number>();
+
+/** "Level 16" → 16; anything that is not a plain level-up evolution → null. */
+function evolutionLevel(method: string | undefined): number | null {
+  const m = /^level\s+(\d+)/i.exec(method ?? '');
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * The lowest level a wild monster of this species can have: the level it
+ * evolves at, or, for a species further down a chain, the highest of its own
+ * evolution level and everything before it. Charmander has no floor,
+ * Charmeleon is 16 and Charizard is 36.
+ */
+export function minWildLevel(species: string): number {
+  const cached = wildFloorCache.get(species);
+  if (cached !== undefined) return cached;
+  const e = entry(species);
+  let floor = 1;
+  if (e.evoFrom && DEX[e.evoFrom]) {
+    const edge = DEX[e.evoFrom].evoTo?.find((x) => x.id === species);
+    const own =
+      evolutionLevel(edge?.method) ??
+      NON_LEVEL_EVOLUTION_FLOOR[Math.min(Math.max(e.stage, 1), 2)];
+    floor = Math.max(own, minWildLevel(e.evoFrom));
+  }
+  wildFloorCache.set(species, floor);
+  return floor;
+}
+
+/**
+ * Whether a species may appear in `biome` when the wild band tops out at
+ * `topLevel`. Two rules: an evolved form needs a band high enough that it
+ * could have evolved, and a legendary needs a high band or a special route.
+ */
+export function canSpawnWild(species: string, biome: BiomeDef, topLevel: number): boolean {
+  if (minWildLevel(species) > topLevel) return false;
+  if (entry(species).rarity === 'legendary' && !biome.special && topLevel < LEGENDARY_MIN_WILD_LEVEL) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Species that can show up in an area: matching types, weighted by the shared
- * ordinary or special rarity table of the tier the area belongs to.
+ * ordinary or special rarity table of the tier the area belongs to, and
+ * filtered by what the current wild level band allows (see `canSpawnWild`).
+ * Without a band it answers "who can ever turn up here".
  */
-export function biomePool(biome: BiomeDef): [string, number][] {
+export function biomePool(
+  biome: BiomeDef,
+  levelRange: [number, number] = [1, MAX_LEVEL],
+): [string, number][] {
   const pool: [string, number][] = [];
   const rarityWeight = tierOf(biome).rarity;
+  const top = levelRange[1];
   for (const id of DEX_IDS) {
     const e = DEX[id];
-    if (e.stage > 1 && e.rarity !== 'legendary') continue;
+    if (!canSpawnWild(id, biome, top)) continue;
     const rarity = rarityWeight[e.rarity];
     const routeType = e.types.some((t) => biome.types.includes(t));
     // Route tables contain off-type Pokémon too, while local types are much
@@ -271,9 +415,11 @@ function rollShiny(s: GameState): boolean {
 export function spawnEnemy(s: GameState, biome: BiomeDef, levelRange: [number, number]): {
   species: string; level: number; shiny: boolean;
 } {
-  const pool = biomePool(biome);
+  const pool = biomePool(biome, levelRange);
   const species = pickWeighted(pool);
-  const level = rndInt(levelRange[0], levelRange[1]);
+  // an evolved form is never found below the level it evolves at
+  const lo = Math.min(levelRange[1], Math.max(levelRange[0], minWildLevel(species)));
+  const level = rndInt(lo, Math.max(lo, levelRange[1]));
   return { species, level, shiny: rollShiny(s) };
 }
 
@@ -414,7 +560,7 @@ export function ballContextFor(state: GameState, ballId: string, enemyTypes: str
     enemyTypes,
     enemyLevel,
     enemyRarity: rarity,
-    biomeId: state.battle.biomeId,
+    biomeId: state.battle.encounterBiomeId ?? state.battle.biomeId,
     alreadyCaught: caught,
     hour: new Date().getHours(),
   });

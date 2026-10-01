@@ -3,16 +3,17 @@ import {
   INCUBATORS, INCUBATOR_BY_ID, ITEMS, ITEM_BY_ID, MONO_HABITATS, currentEvent, nextHabitatCost,
   capacityUpgradeCost, rarityUpgradeCost, type EggTierId,
 } from './content';
-import { BALL_BY_ID, BALLS } from './battle';
+import { BALL_BY_ID, BALLS, MOVES, MOVES_PER_MON, knownMoveIds, relearnableMoves } from './battle';
 import {
   cardName, playCoinFlip, playDice, playHighLow, playLuckyBoxes, playRoulette, playSlots,
   type RouletteBet,
 } from './casino';
-import { DEX, DEX_IDS, RARITY_HATCH_TIME, entry } from './dex';
+import { DEX, DEX_IDS, MAX_LEVEL, RARITY_HATCH_TIME, entry } from './dex';
 import { ACHIEVEMENTS } from './achievements';
 import {
-  breedingCompatible, breedingTime, checkAchievements, createInitialState, fastForward, hatchEgg, makeMon,
-  rebirthGain, simulate, STARTER_LEVEL, syncBattleTeam, switchBattlePokemon, tryCatch, useMove,
+  battleLead, breedingCompatible, breedingTime, checkAchievements, createInitialState, fastForward, fleeEncounter,
+  hatchEgg, learnMovesOnLevelUp, makeMon, rebirthGain, simulate, startEncounter, STARTER_LEVEL, syncBattleTeam,
+  switchBattlePokemon, teachMove, tryCatch, useMove,
 } from './reducer';
 import { chance, clamp, pick, rndInt, uid } from './rng';
 import { BALL_BY_ID as BALL_LOOKUP } from './battle';
@@ -45,6 +46,10 @@ export type Action =
   | { type: 'RENAME_HABITAT'; instanceId: string; name: string }
   | { type: 'USE_MOVE'; uid: string; moveId: string }
   | { type: 'SWITCH_POKEMON'; uid: string }
+  /** a step through tall grass turned up a wild monster from `biomeId`'s table */
+  | { type: 'EXPLORE_ENCOUNTER'; biomeId: string }
+  /** walk away from a monster met while exploring */
+  | { type: 'FLEE_BATTLE' }
   | { type: 'BUY_UPGRADE'; id: string }
   | { type: 'BUY_DIAMOND_UPGRADE'; id: string }
   | { type: 'BUY_EGG'; tier: EggTierId; qty: number }
@@ -52,12 +57,19 @@ export type Action =
   | { type: 'START_HATCH'; eggId: string; incubatorId: string }
   | { type: 'INSTANT_HATCH'; hatchId: string }
   | { type: 'HATCH_EGG'; hatchId: string }
+  | { type: 'DISMISS_HATCH' }
   | { type: 'BUY_INCUBATOR'; id: string }
   | { type: 'USE_ITEM'; itemId: string; uid?: string }
   | { type: 'SELL_ITEM'; itemId: string; qty: number }
   | { type: 'EQUIP_ITEM'; uid: string; itemId: string | null }
   | { type: 'RELEASE'; uid: string }
   | { type: 'EVOLVE'; uid: string; method?: string }
+  /** answer a "wants to learn" prompt by replacing `forget` (null when a slot is free) */
+  | { type: 'LEARN_MOVE'; uid: string; moveId: string; forget: string | null }
+  /** answer a "wants to learn" prompt by not learning the move */
+  | { type: 'SKIP_MOVE'; uid: string; moveId: string }
+  /** pay the tutor to teach back a forgotten or skipped move */
+  | { type: 'RELEARN_MOVE'; uid: string; moveId: string; forget: string | null }
   | { type: 'SET_TEAM'; uids: string[] }
   | { type: 'TOGGLE_TEAM_MEMBER'; uid: string }
   | { type: 'HEAL_TEAM' }
@@ -413,6 +425,13 @@ export function reduce(state: GameState, action: Action): GameState {
       const mon = hatchEgg(s, h.tier, h.shiny, h.parents, h.event, h.inheritance);
       if (!mon) break;
       s.hatches = s.hatches.filter((x) => x.id !== h.id);
+      // the reveal popup shows what came out, one hatchling at a time
+      s.hatchQueue.push(mon.uid);
+      break;
+    }
+
+    case 'DISMISS_HATCH': {
+      s.hatchQueue.shift();
       break;
     }
 
@@ -466,9 +485,15 @@ export function reduce(state: GameState, action: Action): GameState {
           say(s, 'Pick a monster first.', 'bad');
           break;
         }
+        if (target.level >= MAX_LEVEL) {
+          say(s, `${entry(target.species).name} is already at the top level.`, 'bad');
+          break;
+        }
         s.itemBag[item.id] -= 1;
+        const fromLevel = target.level;
         target.level += 1;
         say(s, `${entry(target.species).name} grew to Lv.${target.level}.`, 'good');
+        learnMovesOnLevelUp(s, target, fromLevel);
         break;
       }
       say(s, `${item.name} can be held or sold, not used.`, 'info');
@@ -512,6 +537,8 @@ export function reduce(state: GameState, action: Action): GameState {
       if (mon.heldItem) s.itemBag[mon.heldItem] = (s.itemBag[mon.heldItem] ?? 0) + 1;
       s.mons = s.mons.filter((m) => m.uid !== action.uid);
       s.coins += refund;
+      s.pendingMoves = s.pendingMoves.filter((p) => p.uid !== action.uid);
+      s.hatchQueue = s.hatchQueue.filter((u) => u !== action.uid);
       s.battle.team = s.battle.team.filter((u) => u !== action.uid);
       s.breedingPairs = s.breedingPairs.filter((p) => p.a !== action.uid && p.b !== action.uid);
       syncBattleTeam(s);
@@ -555,6 +582,75 @@ export function reduce(state: GameState, action: Action): GameState {
       s.stats.evolved += 1;
       if (!s.dexCaught.includes(target.id)) s.dexCaught.push(target.id);
       say(s, `🧬 ${e.name} evolved into ${entry(target.id).name}!`, 'good');
+      break;
+    }
+
+    case 'LEARN_MOVE': {
+      const idx = s.pendingMoves.findIndex((p) => p.uid === action.uid && p.moveId === action.moveId);
+      const mon = s.mons.find((m) => m.uid === action.uid);
+      const move = MOVES[action.moveId];
+      if (idx < 0 || !mon || !move) break;
+      const name = entry(mon.species).name;
+      if (knownMoveIds(mon).includes(move.id)) {
+        // it got there some other way in the meantime (the tutor, say)
+        s.pendingMoves.splice(idx, 1);
+        break;
+      }
+      const swapped = knownMoveIds(mon).length >= MOVES_PER_MON && action.forget ? MOVES[action.forget] : null;
+      if (!teachMove(mon, move.id, action.forget)) {
+        say(s, `Pick one of ${name}'s moves to forget.`, 'bad');
+        break;
+      }
+      s.pendingMoves.splice(idx, 1);
+      say(
+        s,
+        swapped
+          ? `${name} forgot ${swapped.name} and learned ${move.name}!`
+          : `${name} learned ${move.name}!`,
+        'good',
+      );
+      break;
+    }
+
+    case 'SKIP_MOVE': {
+      const idx = s.pendingMoves.findIndex((p) => p.uid === action.uid && p.moveId === action.moveId);
+      if (idx < 0) break;
+      s.pendingMoves.splice(idx, 1);
+      const mon = s.mons.find((m) => m.uid === action.uid);
+      const move = MOVES[action.moveId];
+      if (mon && move) {
+        say(s, `${entry(mon.species).name} did not learn ${move.name}. The tutor can teach it later.`);
+      }
+      break;
+    }
+
+    case 'RELEARN_MOVE': {
+      const mon = s.mons.find((m) => m.uid === action.uid);
+      if (!mon) break;
+      const name = entry(mon.species).name;
+      const option = relearnableMoves(mon).find((o) => o.move.id === action.moveId);
+      if (!option) {
+        say(s, `${name} cannot relearn that move.`, 'bad');
+        break;
+      }
+      const known = knownMoveIds(mon);
+      if (known.length >= MOVES_PER_MON && (!action.forget || !known.includes(action.forget))) {
+        say(s, `Pick one of ${name}'s moves to forget first.`, 'bad');
+        break;
+      }
+      if (!spend(s, option.cost)) {
+        say(s, `The tutor wants ⛁${option.cost.toLocaleString()} to teach ${option.move.name}.`, 'bad');
+        break;
+      }
+      const forgotten = known.length >= MOVES_PER_MON && action.forget ? MOVES[action.forget] : null;
+      teachMove(mon, option.move.id, action.forget);
+      // a prompt that was still waiting for this very move is settled now
+      s.pendingMoves = s.pendingMoves.filter((p) => !(p.uid === mon.uid && p.moveId === option.move.id));
+      say(
+        s,
+        `${name} relearned ${option.move.name}${forgotten ? ` and forgot ${forgotten.name}` : ''} (⛁${option.cost.toLocaleString()}).`,
+        'good',
+      );
       break;
     }
 
@@ -603,6 +699,25 @@ export function reduce(state: GameState, action: Action): GameState {
       const res = switchBattlePokemon(s, action.uid);
       if (!res.ok) say(s, res.text, 'bad');
       else say(s, res.text, 'good');
+      break;
+    }
+
+    case 'EXPLORE_ENCOUNTER': {
+      const b = s.battle;
+      if (!s.started) break;
+      // already facing one from the grass: nothing new can jump out
+      if (b.enemy && b.via === 'explore') break;
+      syncBattleTeam(s);
+      if (!battleLead(s)) {
+        say(s, 'The tall grass rustles, but nobody on your team is able to fight.', 'bad');
+        break;
+      }
+      startEncounter(s, { biomeId: action.biomeId, via: 'explore' });
+      break;
+    }
+
+    case 'FLEE_BATTLE': {
+      if (!fleeEncounter(s)) say(s, 'There is nothing to run from.', 'info');
       break;
     }
 
@@ -786,6 +901,8 @@ export function reduce(state: GameState, action: Action): GameState {
       s.hatches = [];
       s.breedingPairs = [];
       s.mons = [];
+      s.pendingMoves = [];
+      s.hatchQueue = [];
       s.habitats = [];
       s.upgrades = {};
       s.breedingZones = 1;

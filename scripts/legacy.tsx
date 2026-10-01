@@ -23,8 +23,10 @@ import { Battle } from '../src/ui/sections/Battle';
 import { Events } from '../src/ui/sections/Events';
 import { Casino } from '../src/ui/sections/Casino';
 import { Resort } from '../src/ui/sections/Resort';
+import { Explore } from '../src/ui/sections/Explore';
 import { Settings } from '../src/ui/sections/Settings';
 import { simulate } from '../src/game/reducer';
+import { movesFor } from '../src/game/battle';
 import { reduce as gameReduce } from '../src/game/actions';
 import { habitatFreeSlots, habitatSlots } from '../src/game/state';
 import { galleryProgress } from '../src/game/gallery';
@@ -179,6 +181,16 @@ check('a habitat has a free slot', !!freeHab);
   }
 }
 
+// moves are stored now: an old save's monsters keep exactly the moves the old
+// level-based rule gave them, and the new queues start empty
+check(
+  'every old monster gets the moves its level used to give it',
+  s.mons.every((m) => JSON.stringify(m.moves) === JSON.stringify(movesFor(m.species, m.level).map((x) => x.id))),
+  JSON.stringify(s.mons.map((m) => [m.species, m.moves])),
+);
+check('an old save has no pending move prompts', Array.isArray(s.pendingMoves) && s.pendingMoves.length === 0);
+check('an old save has no hatch reveals waiting', Array.isArray(s.hatchQueue) && s.hatchQueue.length === 0);
+
 // frames only open on a catch, so a save that predates the gallery opens none
 const gUnlocked = galleryProgress(s).unlocked;
 
@@ -216,6 +228,7 @@ const screens: [string, React.FC<never>, Record<string, unknown> | undefined][] 
   ['Events', Events as unknown as React.FC<never>, undefined],
   ['Casino', Casino as unknown as React.FC<never>, undefined],
   ['Resort', Resort as unknown as React.FC<never>, undefined],
+  ['Explore', Explore as unknown as React.FC<never>, { go: () => {} }],
   ['Settings', Settings as unknown as React.FC<never>, undefined],
 ];
 for (const [name, Screen, props] of screens) {

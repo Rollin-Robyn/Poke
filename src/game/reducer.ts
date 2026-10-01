@@ -2,7 +2,8 @@ import { EVENTS, ITEMS, ITEM_BY_ID, HABITAT_BY_ID, HABITATS, INCUBATORS, INCUBAT
 import { currentEvent } from './content';
 import {
   BALLS, BALL_BY_ID, BALL_IDS, battleCoins, battleXp, catchChance, computeDamage, makeInitialBattle,
-  ENCOUNTER_DELAY, WIPE_REST, biomeLevelRange, movesFor, movesForMon, pushBattleLog, rollItemReward, spawnEnemy,
+  ENCOUNTER_DELAY, WIPE_REST, MOVES, MOVES_PER_MON, biomeLevelRange, knownMoveIds, movesFor, movesForMon,
+  movesLearnedBetween, pushBattleLog, rollItemReward, spawnEnemy, startingMoves,
   randomBiomeOfTier, effectiveSpeed, actsFirst, QUICK_CLAW, QUICK_CLAW_CHANCE,
   WILD_DAMAGE_SCALE, levelBonus, type MoveDef, type TurnSide,
 } from './battle';
@@ -57,6 +58,7 @@ export function makeMon(
     ivs,
     eggMoves: opts.eggMoves ?? [],
     tmMoves: opts.tmMoves ?? [],
+    moves: startingMoves(species, level, opts),
     shiny: opts.shiny ?? false,
     happiness: 55,
     energy: 3600,
@@ -82,6 +84,8 @@ export function createInitialState(): GameState {
     eventTokens: 0,
     eventId: '',
     mons: [],
+    pendingMoves: [],
+    hatchQueue: [],
     habitats: [],
     eggs: [],
     hatches: [],
@@ -264,6 +268,58 @@ export function hatchEgg(
   return mon;
 }
 
+// ----------------------------------------------------------------- moves ---
+/**
+ * Call after a monster's level has gone up from `fromLevel`. Every move the
+ * species picks up on the way is learned straight away while there is room;
+ * once four are known the decision goes to the player instead (see
+ * `pendingMoves`), who can swap one out or skip it. A skipped move is not lost
+ * for good: the move tutor in My Pokémon teaches it again for coins.
+ */
+export function learnMovesOnLevelUp(
+  s: GameState,
+  mon: Mon,
+  fromLevel: number,
+  announce: (text: string) => void = () => {},
+): void {
+  const known = mon.moves ?? startingMoves(mon.species, fromLevel, mon);
+  mon.moves = known;
+  const name = entry(mon.species).name;
+  for (const move of movesLearnedBetween(mon.species, fromLevel, mon.level)) {
+    if (known.includes(move.id)) continue;
+    if (known.length < MOVES_PER_MON) {
+      known.push(move.id);
+      const text = `${name} learned ${move.name}!`;
+      log(s, text, 'good');
+      announce(text);
+    } else if (!s.pendingMoves.some((p) => p.uid === mon.uid && p.moveId === move.id)) {
+      s.pendingMoves.push({ uid: mon.uid, moveId: move.id });
+      announce(`${name} wants to learn ${move.name}.`);
+    }
+  }
+}
+
+/**
+ * Swap a move into a monster's set. `forget` is the move that makes room, or
+ * null when there is still a free slot. Returns false when the request makes
+ * no sense (unknown move, already known, nothing valid to forget).
+ */
+export function teachMove(mon: Mon, moveId: string, forget: string | null): boolean {
+  if (!MOVES[moveId]) return false;
+  const known = knownMoveIds(mon);
+  if (known.includes(moveId)) return false;
+  if (known.length < MOVES_PER_MON) {
+    mon.moves = [...known, moveId];
+    return true;
+  }
+  const at = forget ? known.indexOf(forget) : -1;
+  if (at < 0) return false;
+  const next = known.slice();
+  next[at] = moveId;
+  mon.moves = next;
+  return true;
+}
+
 // ------------------------------------------------------------------ mons ---
 function evolveMon(s: GameState, mon: Mon, method: string | null): boolean {
   const e = entry(mon.species);
@@ -287,6 +343,8 @@ function releaseMon(s: GameState, uidStr: string): void {
   const refund = Math.ceil(entry(mon.species).bst * 4 + mon.level * 120);
   s.mons.splice(idx, 1);
   s.coins += refund;
+  s.pendingMoves = s.pendingMoves.filter((p) => p.uid !== uidStr);
+  s.hatchQueue = s.hatchQueue.filter((u) => u !== uidStr);
   s.battle.team = s.battle.team.filter((u) => u !== uidStr);
   s.battle.players = s.battle.players.filter((p) => p.uid !== uidStr);
   for (const pair of s.breedingPairs) {
@@ -349,7 +407,7 @@ export function breedingInheritance(female: Mon, male: Mon): BreedingInheritance
   const ivs: IVSet = { ...femaleIvs };
   for (const stat of inheritedStats) ivs[stat] = maleIvs[stat];
   const femaleMoves = new Set(movesForMon(female).map((m) => m.id));
-  const maleLearnedMoves = movesFor(male.species, male.level).map((m) => m.id);
+  const maleLearnedMoves = movesForMon(male).map((m) => m.id);
   const eggMoves = [...new Set([...(male.eggMoves ?? []), ...maleLearnedMoves])]
     .filter((id) => !femaleMoves.has(id) && !male.tmMoves?.includes(id)).slice(-2);
   const tmMoves = [...new Set([...(female.tmMoves ?? []), ...(male.tmMoves ?? [])])].slice(-4);
@@ -370,9 +428,13 @@ export function breedingInheritance(female: Mon, male: Mon): BreedingInheritance
  * (or throws a ball); then both sides act once, ordered by move priority and
  * speed, and the turn is over. No clocks, no cooldowns, no automation.
  */
-function startEncounter(s: GameState): void {
+export function startEncounter(
+  s: GameState,
+  opts: { biomeId?: string; via?: 'route' | 'explore' } = {},
+): void {
   const b = s.battle;
-  const biome = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
+  const via = opts.via ?? 'route';
+  const biome = BIOME_BY_ID[opts.biomeId ?? b.biomeId] ?? BIOMES[0];
   // Ordinary biomes all use the same base band. The only level scaling is the
   // number of complete biomes this expedition has passed.
   const [lo, hi] = biomeLevelRange(biome, b.biomesPassed);
@@ -385,8 +447,29 @@ function startEncounter(s: GameState): void {
   const stats = statsAt(spawn.species, spawn.level, mon.nature, mon.iv);
   b.enemy = { uid: mon.uid, hp: stats.hp, maxHp: stats.hp };
   b.turn = 0;
+  b.via = via;
+  b.encounterBiomeId = biome.id;
   if (!s.dexSeen.includes(spawn.species)) s.dexSeen.push(spawn.species);
-  pushBattleLog(b, `A wild ${entry(spawn.species).name} (Lv.${spawn.level}) appears in ${biome.name}!`, 'info');
+  pushBattleLog(
+    b,
+    via === 'explore'
+      ? `A wild ${entry(spawn.species).name} (Lv.${spawn.level}) jumps out of the tall grass!`
+      : `A wild ${entry(spawn.species).name} (Lv.${spawn.level}) appears in ${biome.name}!`,
+    'info',
+  );
+}
+
+/** Walk away from a wild monster met while exploring. Route fights cannot be fled. */
+export function fleeEncounter(s: GameState): boolean {
+  const b = s.battle;
+  if (!b.enemy || b.via !== 'explore') return false;
+  b.enemy = null;
+  b.enemySpec = null;
+  b.enemyId = null;
+  b.turn = 0;
+  b.timer = ENCOUNTER_DELAY;
+  pushBattleLog(b, 'You got away safely.', 'info');
+  return true;
 }
 
 export function syncBattleTeam(s: GameState): void {
@@ -422,7 +505,7 @@ export function battleLead(s: GameState): BattleMon | null {
 
 function awardBattleRewards(s: GameState, enemyLevel: number, isBoss: boolean): void {
   const b = s.battle;
-  const biome = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
+  const biome = BIOME_BY_ID[b.encounterBiomeId ?? b.biomeId] ?? BIOMES[0];
   const coins = Math.ceil(battleCoins(enemyLevel, biome) * (isBoss ? 6 : 1));
   const xpEach = Math.ceil(battleXp(enemyLevel) * (isBoss ? 5 : 1));
   s.coins += coins;
@@ -439,8 +522,10 @@ function awardBattleRewards(s: GameState, enemyLevel: number, isBoss: boolean): 
     const mon = s.mons.find((m) => m.uid === p.uid);
     if (!mon) continue;
     const share = 0.2 * clamp(enemyLevel / Math.max(1, mon.level), 0.5, 2);
+    const fromLevel = mon.level;
     const gained = gainXp(mon, xpNeeded(mon.level) * share + xpEach * 0.1);
     if (gained) {
+      learnMovesOnLevelUp(s, mon, fromLevel, (text) => pushBattleLog(b, text, 'reward'));
       const stats = statsAt(mon.species, mon.level, mon.nature, mon.iv);
       const pEntry = b.players.find((x) => x.uid === mon.uid);
       if (pEntry) {
@@ -611,7 +696,7 @@ function handleFaint(s: GameState, side: TurnSide): void {
 /** The wild monster went down: pay out, count it, and maybe move on. */
 function handleEnemyFainted(s: GameState): void {
   const b = s.battle;
-  const biome = BIOME_BY_ID[b.biomeId] ?? BIOMES[0];
+  const biome = BIOME_BY_ID[b.encounterBiomeId ?? b.biomeId] ?? BIOMES[0];
   const name = entry(b.enemySpec!).name;
   awardBattleRewards(s, b.enemyLevel, false);
   b.cleared += 1;
@@ -753,7 +838,7 @@ export function tryCatch(s: GameState, ballId: string): { ok: boolean; text: str
     enemyTypes: entry(b.enemySpec).types,
     enemyLevel: b.enemyLevel,
     enemyRarity: DEX[b.enemySpec].rarity,
-    biomeId: b.biomeId,
+    biomeId: b.encounterBiomeId ?? b.biomeId,
     alreadyCaught: s.dexCaught.includes(b.enemySpec),
     hour: new Date().getHours(),
   });

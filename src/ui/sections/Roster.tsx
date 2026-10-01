@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useGame } from '../store';
-import { Bar, ItemSprite, Modal, MonCard, Panel, RarityTag, Sprite, TypeTag } from '../components';
+import { Bar, ItemSprite, Modal, MonCard, MoveInfo, Panel, RarityTag, Sprite, TypeTag } from '../components';
 import {
-  DEX, HABITAT_BY_ID, ITEMS, ITEM_BY_ID, RARITIES, entry, fmt, fmtTime, happinessTier,
-  monBaseOutput, monOutputWithHabitat, natureBlurb, storageCap,
+  DEX, HABITAT_BY_ID, ITEMS, ITEM_BY_ID, MOVES_PER_MON, RARITIES, entry, fmt, fmtTime, happinessTier,
+  monBaseOutput, monOutputWithHabitat, movesForMon, natureBlurb, relearnableMoves, storageCap,
 } from './shared';
 import { EGG_HATCH_LEVEL } from '../../game/content';
 import type { Mon } from '../../game/state';
@@ -177,6 +177,7 @@ export function Roster() {
                   </div>
                 )}
               </Panel>
+              <MovesPanel mon={mon} />
             </div>
 
             <div className="stack">
@@ -285,5 +286,87 @@ export function Roster() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/**
+ * What the monster knows right now, plus the move tutor: any move its level
+ * has unlocked that it no longer knows (forgotten or skipped) can be taught
+ * again for coins. With four moves known, the player picks which one to drop.
+ */
+function MovesPanel({ mon }: { mon: Mon }) {
+  const { state, dispatch } = useGame();
+  const [picking, setPicking] = useState<string | null>(null);
+  const known = movesForMon(mon);
+  const options = relearnableMoves(mon);
+  const full = known.length >= MOVES_PER_MON;
+  const choice = options.find((o) => o.move.id === picking);
+
+  return (
+    <Panel title="Moves" right={<span className="tiny dim">{known.length}/{MOVES_PER_MON} known</span>}>
+      <div className="stack" style={{ gap: 6 }}>
+        {known.length === 0 && <div className="small muted">Knows no moves yet.</div>}
+        {known.map((m) => (
+          <div key={m.id} className="panel" style={{ padding: '6px 9px' }}>
+            <MoveInfo move={m} />
+          </div>
+        ))}
+      </div>
+
+      <div className="tiny muted" style={{ margin: '14px 0 6px' }}>
+        MOVE TUTOR · forgotten and skipped moves
+      </div>
+      {options.length === 0 ? (
+        <div className="tiny dim">
+          Nothing to relearn. Moves it forgets or skips as it levels up will be listed here.
+        </div>
+      ) : (
+        <div className="stack" style={{ gap: 6 }}>
+          {options.map((o) => (
+            <div key={o.move.id} className="row between" style={{ gap: 8 }}>
+              <div className="stack" style={{ gap: 2 }}>
+                <MoveInfo move={o.move} />
+                <span className="tiny dim">learned at Lv.{o.level}</span>
+              </div>
+              <button
+                className="btn xs"
+                disabled={state.coins < o.cost}
+                title={state.coins < o.cost ? 'Not enough coins' : `Pay ${o.cost} coins to relearn ${o.move.name}`}
+                onClick={() => {
+                  if (full) setPicking(o.move.id);
+                  else dispatch({ type: 'RELEARN_MOVE', uid: mon.uid, moveId: o.move.id, forget: null });
+                }}
+              >
+                ⛁ {fmt(o.cost)}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {choice && (
+        <div className="panel" style={{ marginTop: 12, padding: 10, borderColor: 'var(--gold)' }}>
+          <div className="small" style={{ marginBottom: 8 }}>
+            Relearn <b>{choice.move.name}</b> for ⛁ {fmt(choice.cost)} — which move should be forgotten?
+          </div>
+          <div className="stack" style={{ gap: 6 }}>
+            {known.map((m) => (
+              <button
+                key={m.id}
+                className="btn sm"
+                style={{ justifyContent: 'flex-start' }}
+                onClick={() => {
+                  dispatch({ type: 'RELEARN_MOVE', uid: mon.uid, moveId: choice.move.id, forget: m.id });
+                  setPicking(null);
+                }}
+              >
+                Forget {m.name}
+              </button>
+            ))}
+            <button className="btn sm ghost" onClick={() => setPicking(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 }

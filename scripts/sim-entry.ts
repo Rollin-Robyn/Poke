@@ -12,3 +12,5 @@ export * from '../src/game/gallery';
 export * from '../src/game/achievements';
 export * from '../src/game/casino';
 export * from '../src/game/save';
+export * from '../src/game/explore';
+export * from '../src/ui/exploreDraw';

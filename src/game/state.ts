@@ -38,6 +38,13 @@ export interface Mon {
   /** moves inherited from the parents rather than the species learnset */
   eggMoves?: string[];
   tmMoves?: string[];
+  /**
+   * The (up to four) moves this monster knows right now, by move id. They are
+   * stored rather than derived from the level, so a move the player skipped or
+   * replaced stays gone until it is relearned. Saves from before this field
+   * existed are filled in from the old level-based rule on load.
+   */
+  moves?: string[];
   shiny: boolean;
   happiness: number; // 0..100
   /** seconds of work left before the monster gets sleepy */
@@ -134,6 +141,10 @@ export interface BattleState {
   enemySpec: string | null;
   enemyLevel: number;
   enemyShiny: boolean;
+  /** the area the current wild monster was found in (a route, or an exploration zone) */
+  encounterBiomeId?: string;
+  /** how it turned up: the route's own pacing, or a step through tall grass */
+  via?: 'route' | 'explore';
   players: BattleMon[];
   /** turns taken in the current encounter */
   turn: number;
@@ -152,6 +163,12 @@ export interface BattleState {
   rewards: { coins: number; xp: number; items: Record<string, number> };
 }
 
+/** A move a monster could learn, waiting on the player to swap it in or skip it. */
+export interface PendingMove {
+  uid: string;
+  moveId: string;
+}
+
 export interface GameState {
   version: number;
   createdAt: number;
@@ -167,6 +184,14 @@ export interface GameState {
   eventId: string;
 
   mons: Mon[];
+  /**
+   * Moves waiting on a decision. A monster that levels up into a move with four
+   * already known does not forget one on its own: the prompt asks the player,
+   * who can replace a move or skip learning it.
+   */
+  pendingMoves: PendingMove[];
+  /** monsters that just hatched, in order, waiting for their reveal popup */
+  hatchQueue: string[];
   habitats: OwnedHabitat[];
   eggs: StoredEgg[];
   hatches: Hatch[];
@@ -397,8 +422,11 @@ export function monHappinessMult(mon: Mon): number {
   return 0.65 + 0.35 * (mon.happiness / 100);
 }
 
+/** Output gained per level above 1: +2% a level, so Lv.100 earns about 3× Lv.1. */
+export const LEVEL_OUTPUT_STEP = 0.02;
+
 export function monLevelMult(mon: Mon): number {
-  return 1 + 0.06 * (mon.level - 1);
+  return 1 + LEVEL_OUTPUT_STEP * (Math.max(1, mon.level) - 1);
 }
 
 /** Coin output of a single monster per minute, before habitat/global bonuses. */

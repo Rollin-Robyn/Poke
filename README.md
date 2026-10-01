@@ -13,21 +13,22 @@ npm run dev        # http://localhost:5173
 
 ## What is in the game
 
-Ten screens, wired together so each one feeds the next.
+Eleven screens, an exploration test map and a settings menu, wired together so each one feeds the next.
 
 | Screen | What it does |
 | --- | --- |
 | **Dashboard** | Every currency (coins, diamonds, rebirth coins, event tokens), coins/hour and coins/day, the habitat widget, manually collectible pending habitat cash, the **expensive coin exchange** (coins → diamonds) and the activity log. |
-| **My Habitats** | The habitats you own as instances, with the monsters inside them and their income. Monotype habitats are cheap; multitype habitats hold two or three types and cost a fortune. Both get more expensive the more of that class you own, and you can own duplicates. A fresh habitat holds **one** monster; capacity upgrades add room independently, while a separate premium rarity track raises the rarity ceiling. |
-| **Eggs** | Stockpile with a **3-slot starting cap** and an upgradable cap, five incubator tiers (faster + more slots), multiple purchasable egg tiers from Field through Ascendant, a buy-egg section and the seasonal **festival egg**. Incubation completes at **level 1** and leaves the egg ready in its slot until you manually click **Hatch** — the reward is rarity, not levels. |
-| **My Pokémon** | The full roster as cards: art, types, nature, production/min, happiness and sleep timer. Search by name and filter by type, rarity, location and shiny status; sort by level / output / rarity / dex number / recent. Hold items, feed berries, evolve, release. |
+| **My Habitats** | The habitats you own as instances, with the monsters inside them and their income. Monotype habitats are cheap; multitype habitats hold two or three types and cost a fortune. Both get more expensive the more of that class you own, and you can own duplicates. A fresh habitat holds **one** monster; capacity upgrades add room independently, while a separate premium rarity track raises the rarity ceiling. The first rarity step is cheap (2.5 K for a monotype habitat) and every step after it costs five times the last — see *Habitat tracks* below. |
+| **Eggs** | Stockpile with a **3-slot starting cap** and an upgradable cap, five incubator tiers (faster + more slots), multiple purchasable egg tiers from Field through Ascendant, a buy-egg section and the seasonal **festival egg**. Incubation completes at **level 1** and leaves the egg ready in its slot until you manually click **Hatch** — the reward is rarity, not levels. Every hatch pops up a small reveal: the egg wobbles, cracks, and the monster that came out is shown with its rarity, types, nature and IVs (a shiny gets sparkles). Hatches that land back to back are shown one after another. |
+| **My Pokémon** | The full roster as cards: art, types, nature, production/min, happiness and sleep timer. Search by name and filter by type, rarity, location and shiny status; sort by level / output / rarity / dex number / recent. Hold items, feed berries, evolve, release. The detail view lists the **four moves the monster knows** and a **move tutor**: any move its level has unlocked that it forgot or skipped can be taught again for coins (the price grows with the move's power and the level it was learned at; with four moves known you pick the one to drop). |
 | **Pokédex** | All 649 species. Uncaught species show a `?`. Detail view with base stats, breeding data, evolutions, the **moves by level** learnset, and whether this species' gallery frames are open. |
 | **Gallery** | Individual pages for every caught species plus optional artwork frames. One frame per picture found in `public/gallery/`; a caught species page opens immediately, and a shiny frame opens only when you catch one **shiny**. Artwork is not the battle sprites, and nothing is bought with diamonds. |
 | **Breeding** | Zones, an active pair display and parent selection. One male + one female sharing an egg group. The female determines the offspring species; selected male IVs, inherited egg moves and TMs carry over, with Destiny Knot selecting five male IVs. Parents rest afterwards. |
-| **Battle** | Turn-based and played **by hand**. You pick a move, then both monsters act once, ordered by move priority, then speed, then held items (Choice Scarf, Quick Claw, Macho Brace) — with a speed roll, so a close call can go either way. A team of **six**; every monster knows the four moves it learned most recently from its species' learnset, so moves grow with level. You can manually switch mid-fight as your turn; the wild move selected before the switch still targets the deployed monster. Ordinary biomes share one Lv.2–8 tier and rule set, wild levels rise by +4 per biome passed in the current run (capped at +92), route types are weighted rather than exclusive, and only special routes can appear as a distinct tier after three passed biomes. The next biome is entered randomly after the encounter threshold; there is no direct travel picker. Catching with 14 ball types — a throw costs the turn — and trainer battles every 25th win. |
+| **Battle** | Turn-based and played **by hand**. You pick a move, then both monsters act once, ordered by move priority, then speed, then held items (Choice Scarf, Quick Claw, Macho Brace) — with a speed roll, so a close call can go either way. A team of **six**; every monster *stores* up to four moves from its species' learnset. When a level-up (a battle win or a Rare Candy) opens a new move and all four slots are full, a prompt asks which move to **replace** — or lets you **skip** learning it; with a free slot the move is simply learned. You can manually switch mid-fight as your turn; the wild move selected before the switch still targets the deployed monster. Ordinary biomes share one Lv.2–8 tier and rule set, wild levels rise by +4 per biome passed in the current run (capped at +92), route types are weighted rather than exclusive, and only special routes can appear as a distinct tier after three passed biomes. The next biome is entered randomly after the encounter threshold; there is no direct travel picker. **Who turns up follows the level band:** an evolved form is only found once the band reaches the level it evolves at (Charmeleon from Lv.16, Charizard from Lv.36; stone, trade and friendship evolutions get a floor of Lv.20 / Lv.36), and legendary-rarity monsters only roam ordinary routes once wild levels reach Lv.50 — special routes can hold one at any level. Catching with 14 ball types — a throw costs the turn — and trainer battles every 25th win. |
 | **Events** | Four seasonal events driven by the real calendar, each unlocking forms that exist in your repo and paying out **epic-tier** rewards for event tokens. |
 | **Casino** | Six minigames, coins or diamonds, and the stake is an exact amount you type — never forced all-in. |
 | **Resort** | Diamond upgrades, manually claimable achievements (mostly coins, with small diamond rewards reserved for difficult milestones), the bag, **rebirth** and hard reset. |
+| **Exploration (test)** | A small walkable route built from the FireRed/LeafGreen outdoor tileset: sand roads, a pond, conifers, boulders and flowers, with fields of **tall grass**. Walk with the arrow keys or WASD (hold Shift to run, or use the on-screen pad); the first monster of your battle team **follows one tile behind you**. Steps through tall grass can start a wild encounter — the same fight as on the Battle screen, with the same moves, balls, rewards and level-ups, plus a **Run** button that routes do not have. See *Exploration (test)* below. |
 | **Settings** | ⚙️ in the header: game options, export/import a save, and a reset that really clears the stored save. |
 
 **Currencies:** coins (the main engine), diamonds (the **coin exchange**, achievements, rare
@@ -48,17 +49,26 @@ and so are the diamond upgrades and the alternate forms. Gallery frames are **no
 they open by catching the monster in the picture.
 
 **Money comes from monsters, not multipliers.** There is no "+% coins" upgrade anywhere.
-Income is a product of how many monsters you house (habitat capacity) and how rare they are
-(common → legendary is a 28× output ladder), multiplied only by the permanent rebirth bonus.
-Capacity and rarity are independent upgrade tracks: capacity is moderately priced and escalates per habitat, while rarity is deliberately expensive. A new habitat takes common and uncommon monsters, and three rarity upgrades before it will house a legendary.
+Income is a product of how many monsters you house (habitat capacity), how rare they are and
+how high a level they have, multiplied only by the permanent rebirth bonus. Both curves are
+deliberately shallow: **common → legendary is a 6.7× ladder** (60 / 100 / 160 / 250 / 400 coins
+a minute at level 1) and **a level adds 2%**, so a level 100 monster earns about 3× a level 1
+one. (They used to be a 28× ladder and +6% a level — 7× at level 100 — which made a single
+high-level legendary worth more than a whole reserve of commons.) A starter-level common still
+earns what it always did.
+Capacity and rarity are independent upgrade tracks: capacity is moderately priced and escalates per habitat, while rarity has a cheap first step and then climbs steeply. A new habitat takes common and uncommon monsters, and three rarity upgrades before it will house a legendary.
 
 **🏠 Habitat tracks:**
-| Upgrade level | Capacity | Rarity ceiling |
-| --- | --- | --- |
-| 0 | 1 slot | uncommon |
-| 1 | 2 slots | rare |
-| 2 | 3 slots | epic |
-| 3+ | 4+ slots | legendary |
+| Upgrade level | Capacity | Rarity ceiling | Rarity step to get there (monotype / multitype) |
+| --- | --- | --- | --- |
+| 0 | 1 slot | uncommon | — |
+| 1 | 2 slots | rare | 2.5 K / 150 K |
+| 2 | 3 slots | epic | 12.5 K / 750 K |
+| 3+ | 4+ slots | legendary | 62.5 K / 3.75 M |
+
+Each rarity step costs five times the one before (`base × 5^level`). Uncommon → rare used to
+cost 18 K, then 39 K and 83 K for the next two steps; now the first step is a few minutes of
+income and only the later ones are a real decision.
 
 **Sleep system:** monsters work for a while, then get sleepy and drop to 30% output until a
 berry wakes them — this is what makes berries, happiness and the stamina upgrades matter.
@@ -71,7 +81,7 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 
 ## Rules that are enforced (and tested)
 
-`npm run checks` asserts the design rules against the real game logic — 183 checks:
+`npm run checks` asserts the design rules against the real game logic — 370 checks:
 
 - the starter flow hands over **only** the chosen starter, in a **monotype habitat of its own
   type**, **level 5**, with no free monsters and no extra habitats;
@@ -88,9 +98,29 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 - damage follows the main-series formula (`((2×level/5 + 2) × power × atk/def) / 50 + 2`,
   times effectiveness, STAB, a critical and the 0.85–1.00 roll), so it scales with level
   instead of sticking at 1;
-- a monster knows the four moves it learned most recently from a per-species learnset
-  (`npm run data` builds it, seeded so it is reproducible) — level 1 monsters start with
-  one or two weak moves, and no move appears twice;
+- a monster stores up to four moves from a per-species learnset (`npm run data` builds it,
+  seeded so it is reproducible) — level 1 monsters start with one or two weak moves, and no
+  move appears twice. Old saves keep exactly the moves the old level-based rule gave them;
+- **learning moves is the player's call**: a new move is learned straight away while there is a
+  free slot, otherwise a locked prompt (after a battle win or a Rare Candy) asks which move to
+  forget or lets the player skip it, and a bad answer changes nothing. Skipped and forgotten
+  moves can be bought back from the move tutor — only moves the level has unlocked, only with
+  enough coins, and a full set must name the move to drop. A Rare Candy no longer works past
+  level 100;
+- every hatch queues a **reveal popup** for the monster that came out, in order; a hatch refused
+  for lack of room shows nothing, and releasing a monster drops its popup and its prompts;
+- **who turns up in the wild follows the level band** — nothing evolved appears below the level
+  it evolves at (Charmeleon 16, Charizard 36, Dragonite 55; stone/trade/friendship evolutions
+  wait for Lv.20 / Lv.36), spawned levels never go under that floor, and legendary-rarity
+  monsters are kept off ordinary routes until the band reaches Lv.50 (special routes are the
+  exception);
+- rarity upgrades are cheap at first and **five times dearer with each step** (2.5 K, 12.5 K,
+  62.5 K for a monotype habitat), and income follows a shallow ladder: a legendary earns under
+  8× a common, level 100 earns about 3× level 1, and a starter-level common is unchanged;
+- the exploration route is a closed map (solid edge, spawn on open ground, every tall-grass
+  tile reachable), every tile it draws exists in the tileset that ships, the first team member
+  always ends a step on the cell the player just left, and the grass starts encounters that go
+  through the same spawn rules as a route;
 - ordinary areas share one tier, rarity table and level band, with several route types in each
   weighted but never exclusive; each passed biome raises wild levels for the current run,
   and after the configured threshold a special route can appear randomly as the only distinct
@@ -120,6 +150,53 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 
 ---
 
+## Exploration (test)
+
+The **Exploration (test)** tab is a first, deliberately small take on walking around instead of
+clicking: one route you can roam with your team.
+
+- **Controls:** arrow keys or WASD, hold **Shift** (or tick *Run*) to run, or hold the on-screen
+  pad. Zoom ×2/×3/×4 changes the canvas size; the camera shows a 15 × 10 tile window like a
+  Game Boy Advance. *Back to start* walks you to the road again.
+- **Your team walks with you.** The first monster of the battle team follows exactly one tile
+  behind and steps into the tile you just left, so it stays right behind even when you turn
+  back (you swap places). It is drawn from its Gen 5 sprite, scaled to its real height, facing
+  the way it walks, hopping a little with each step; tall grass hides its feet like yours. With
+  no team, *Use my strongest six* fills it in (or pick one on the Battle screen).
+- **Tall grass starts encounters.** A step in the dark-green plants has a 14% chance of rustling
+  (never in the first few steps after a fight); an exclamation mark pops up, the player stops,
+  and a wild monster from the route's table (*Sunny Meadow*, at the run's current level band)
+  jumps out. It is **the real battle**: the same moves, balls, switching, rewards, XP, move
+  prompts and dex entries as on the Battle screen — the fight HUD appears under the map and the
+  walker is locked until it ends. The one difference is a **Run** button, which only works on
+  monsters met here, never on a route fight. The spawn rules above apply, so a fresh run only
+  meets unevolved monsters.
+- **What is on the map:** sand roads that autotile their corners and edges (they have to be two
+  tiles wide), tall-grass fields, a pond, conifer walls, boulders and flowers. Trees, the pond
+  and rocks are solid; everything else can be walked on.
+
+**Where the art comes from.** `Pokémon Gen 3 or so Ultimate Tileset Collection.pdf` in the repo
+root is a catalogue of *links* to sprite sheets (it embeds no images itself); the FireRed /
+LeafGreen sheets it lists are the ones in the `Pokemon FireRed Tileset/` folder on `main`. The
+map uses one of them, **Tileset 2** (the outdoor sheet), copied unchanged to
+`public/explore/tileset.png`: a grid of 16 px tiles with a 1 px gap, so tile (column, row) sits at
+`1 + 17 × column`, `1 + 17 × row`. The walking sprite is a crop of the Black 2 / White 2
+*Overworld Entities* sheet (`Pokemon B2&W2 trainers/` on `main`), with its background keyed out,
+because there is no FireRed player sheet. `public/explore/README.md` has the exact crop.
+
+**How the map is made.** `src/game/explore.ts` holds the route as a small ASCII template
+(`INTERIOR`: `.` grass, `g` tall grass, `s` sand, `f` flowers, `b` bush, `r` boulder, `T` tree,
+`P` pond, `@` start) plus a ring of trees the builder adds. Add a row or move a patch there and
+the autotiling, collision, tall-grass cells and spawn point follow; `npm run checks` fails if a
+patch becomes unreachable or a tile falls outside the sheet. The walker (grid steps, held
+directions, the follower trail, the encounter roll) is pure logic in the same file, and
+`src/ui/exploreDraw.ts` only paints it, so both are tested without a browser.
+
+It is a test screen on purpose: there is one route, the position is kept while the tab is
+closed but not saved, and there are no NPCs, signs, ledges or doors yet.
+
+---
+
 ## Sprites
 
 Your repo is used directly — nothing was replaced or re-drawn.
@@ -129,6 +206,8 @@ public/gallery/             (empty) artwork for the Gallery screen — see its R
 public/sprites/gen5/        3372 files: 0001–0649.png, shiny/, female/, back/, back/shiny/…,
                             plus 104 alternate forms (0479-wash.png, 0585-autumn.png, …)
 public/sprites/items/flat/  661 item sprites (balls, berries, stones, held items)
+public/explore/             the exploration test map: tileset.png (FireRed/LeafGreen "Tileset 2")
+                            and player.png (a walking trainer) — see its README
 ```
 
 The original item folders had spaces in their names (`Balls 30x30`, `Items/gen5 24x24`),
@@ -163,13 +242,16 @@ scripts/
   smoke.tsx           renders every screen under Node to catch crashes
 src/game/             pure logic, no React
   dex.ts  content.ts  state.ts  reducer.ts  actions.ts  battle.ts
+  explore.ts          the test route (map data + autotile), the walker and the grass encounters
   gallery.ts          which frames exist and which ones your dex has opened
   typechart.ts  natures.ts  achievements.ts  casino.ts  save.ts  rng.ts
 src/ui/
   store.ts            game loop (8 Hz), autosave, offline report
   components.tsx      Panel, MonCard, Sprite, Bar, Modal…
-  sections/           the eleven screens
+  exploreDraw.ts      paints the exploration map onto a canvas (testable with a fake canvas)
+  sections/           the screens; Reveals.tsx holds the hatch popup and the move prompt
   theme.css
+public/explore/       tileset + walking sprite for the exploration map
 ```
 
 ### Commands

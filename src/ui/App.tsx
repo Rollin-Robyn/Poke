@@ -12,6 +12,8 @@ import { Battle } from './sections/Battle';
 import { Events } from './sections/Events';
 import { Casino } from './sections/Casino';
 import { Resort } from './sections/Resort';
+import { Explore } from './sections/Explore';
+import { HatchReveal, MoveLearnPrompt } from './sections/Reveals';
 import { Settings } from './sections/Settings';
 import { currentEvent, entry, fmt, fmtTime, productionPerMinute } from './sections/shared';
 
@@ -27,6 +29,7 @@ const TABS: { id: string; label: string; icon: string }[] = [
   { id: 'events', label: 'Events', icon: '🎉' },
   { id: 'casino', label: 'Casino', icon: '🎰' },
   { id: 'resort', label: 'Resort', icon: '🏗️' },
+  { id: 'explore', label: 'Exploration (test)', icon: '🗺️' },
 ];
 
 const STARTERS = ['bulbasaur', 'charmander', 'squirtle'];
@@ -130,6 +133,7 @@ export function App() {
         {tab === 'events' && <Events />}
         {tab === 'casino' && <Casino />}
         {tab === 'resort' && <Resort />}
+        {tab === 'explore' && <Explore go={setTab} />}
 
         {!canAffordAnything && state.mons.length === 0 && (
           <div className="muted small" style={{ marginTop: 20 }}>Loading reserve…</div>
@@ -148,6 +152,9 @@ export function App() {
           onSettings={() => setSettings(true)}
         />
       )}
+
+      {state.started && <HatchReveal />}
+      {state.started && <MoveLearnPrompt />}
 
       {offline && (
         <Modal title="Welcome back" onClose={dismissOffline}>

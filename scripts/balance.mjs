@@ -59,7 +59,8 @@ const fmt = (n) => {
 function playBattle(s) {
   const b = s.battle;
   if (!b.enemy || !b.enemySpec) return;
-  const lead = b.players.find((p) => p.hp > 0);
+  // the monster that is out front, which is not always the first one standing
+  const lead = g.battleLead(s);
   const mon = lead && s.mons.find((m) => m.uid === lead.uid);
   if (!mon) return;
   // a weakened monster is worth a ball before it is worth another hit
@@ -70,7 +71,7 @@ function playBattle(s) {
       return;
     }
   }
-  const moves = g.movesFor(mon.species, mon.level);
+  const moves = g.movesForMon(mon);
   if (moves.length) {
     const best = moves.reduce((a, m) => (m.power > a.power ? m : a), moves[0]);
     g.useMove(s, mon.uid, best.id);
@@ -126,9 +127,30 @@ function playthrough(label, strategy) {
 playthrough('pure idle (no purchases, no battles)', () => {});
 
 // --- strategy B: greedy buyer, roughly how a real player behaves
+/**
+ * A sensible player answers every "wants to learn" prompt: swap out the
+ * weakest known move for a stronger new one, otherwise skip.
+ */
+function answerMovePrompts(s) {
+  while (s.pendingMoves.length) {
+    const { uid, moveId } = s.pendingMoves[0];
+    const mon = s.mons.find((m) => m.uid === uid);
+    const known = mon ? g.movesForMon(mon) : [];
+    const weakest = known.reduce((a, m) => (!a || m.power < a.power ? m : a), null);
+    if (mon && weakest && g.MOVES[moveId].power > weakest.power) {
+      reduce(s, { type: 'LEARN_MOVE', uid, moveId, forget: weakest.id });
+    } else {
+      reduce(s, { type: 'SKIP_MOVE', uid, moveId });
+    }
+  }
+  // the hatch popup is only a popup
+  while (s.hatchQueue.length) reduce(s, { type: 'DISMISS_HATCH' });
+}
+
 function greedy(s, t) {
   // a hands-on player: fight while the reserve runs itself
   playBattle(s);
+  answerMovePrompts(s);
 
   const buyUpgrade = (id) => {
     const def = g.UPGRADE_BY_ID[id];
@@ -159,6 +181,22 @@ function greedy(s, t) {
       const def = g.HABITAT_BY_ID[match.defId];
       const cost = g.slotUpgradeCost(def, match.slotLevel);
       if (s.coins >= cost * 1.5) reduce(s, { type: 'BUY_HABITAT_SLOT', instanceId: match.id });
+    }
+  }
+
+  // 1b. a monster that is only waiting on the habitat's rarity ceiling
+  if (idle.length) {
+    const blocked = s.habitats.find((h) => {
+      const def = g.HABITAT_BY_ID[h.defId];
+      return (h.rarityLevel ?? 0) < 3 && idle.some((m) => {
+        const e = g.DEX[m.species];
+        return e.types.some((t) => def.types.includes(t)) && !g.rarityAllowed(h, e.rarity);
+      });
+    });
+    if (blocked) {
+      const def = g.HABITAT_BY_ID[blocked.defId];
+      const cost = g.rarityUpgradeCost(def, blocked.rarityLevel ?? 0);
+      if (s.coins >= cost * 1.5) reduce(s, { type: 'BUY_HABITAT_RARITY', instanceId: blocked.id });
     }
   }
 

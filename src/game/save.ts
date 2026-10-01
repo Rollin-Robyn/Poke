@@ -1,4 +1,5 @@
 import { BIOME_BY_ID, EGG_TIERS, HABITAT_BY_ID, MONO_HABITATS, MULTI_HABITATS } from './content';
+import { MOVES, MOVES_PER_MON, startingMoves } from './battle';
 import { createInitialState, fastForward, makeMon, syncBattleTeam, SAVE_VERSION } from './reducer';
 import { DEX, DEX_IDS, RARITIES, type Rarity } from './dex';
 import { clamp } from './rng';
@@ -140,6 +141,20 @@ function migrate(state: GameState): GameState {
     mon.habitatId = next;
   }
 
+  // prompts that point at a monster that is gone, or at a move it already
+  // knows, are stale; so is a hatch reveal for a monster that no longer exists
+  const uids = new Set(merged.mons.map((m) => m.uid));
+  const seenPrompts = new Set<string>();
+  merged.pendingMoves = (Array.isArray(merged.pendingMoves) ? merged.pendingMoves : []).filter((p) => {
+    const key = `${p?.uid}:${p?.moveId}`;
+    const mon = p ? merged.mons.find((m) => m.uid === p.uid) : undefined;
+    if (!p || !mon || !MOVES[p.moveId] || mon.moves?.includes(p.moveId) || seenPrompts.has(key)) return false;
+    seenPrompts.add(key);
+    return true;
+  });
+  merged.hatchQueue = (Array.isArray(merged.hatchQueue) ? merged.hatchQueue : [])
+    .filter((u): u is string => typeof u === 'string' && uids.has(u));
+
   // battle: an old save has neither cooldown maps nor a filtered team
   merged.battle ??= fresh.battle;
   merged.battle.players ??= [];
@@ -185,6 +200,13 @@ function normalizeMon(raw: Mon, index: number): Mon {
   const level = clamp(Math.floor(Number(m.level) || 1), 1, 100);
   const base = makeMon(species, level);
   const gender = m.gender === 'M' || m.gender === 'F' || m.gender === 'N' ? m.gender : base.gender;
+  const eggMoves = Array.isArray(m.eggMoves) ? m.eggMoves.filter((id): id is string => typeof id === 'string') : [];
+  const tmMoves = Array.isArray(m.tmMoves) ? m.tmMoves.filter((id): id is string => typeof id === 'string') : [];
+  // Moves are stored now. A save from before that holds none, so those
+  // monsters start with exactly the moves the old level-based rule gave them.
+  const storedMoves = Array.isArray(m.moves)
+    ? [...new Set(m.moves.filter((id): id is string => typeof id === 'string' && !!MOVES[id]))].slice(0, MOVES_PER_MON)
+    : [];
   return {
     ...base,
     uid: typeof m.uid === 'string' && m.uid ? m.uid : base.uid,
@@ -194,8 +216,9 @@ function normalizeMon(raw: Mon, index: number): Mon {
     nature: typeof m.nature === 'string' && m.nature ? m.nature : base.nature,
     iv: clamp(Math.floor(Number.isFinite(Number(m.iv)) ? Number(m.iv) : base.iv), 0, 31),
     ivs: normalizeIvs(m.ivs, Math.floor(Number.isFinite(Number(m.iv)) ? Number(m.iv) : base.iv)),
-    eggMoves: Array.isArray(m.eggMoves) ? m.eggMoves.filter((id): id is string => typeof id === 'string') : [],
-    tmMoves: Array.isArray(m.tmMoves) ? m.tmMoves.filter((id): id is string => typeof id === 'string') : [],
+    eggMoves,
+    tmMoves,
+    moves: storedMoves.length ? storedMoves : startingMoves(species, level, { eggMoves, tmMoves }),
     shiny: !!m.shiny,
     form: typeof m.form === 'string' && m.form ? m.form : null,
     gender,

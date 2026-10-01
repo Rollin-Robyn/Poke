@@ -1,5 +1,6 @@
 import React from 'react';
 import { DEX, GENDER_ICON, RARITY_META, entry, eggSpriteUrl, itemUrl, monBaseOutput, monOutputWithHabitat, spriteUrl } from '../game/exports';
+import type { MoveDef } from '../game/battle';
 import type { GameState, Mon } from '../game/state';
 import { happinessTier, natureBlurb } from '../game/state';
 import { TYPE_COLORS } from '../game/typechart';
@@ -176,22 +177,49 @@ export function MonCard({
   );
 }
 
-export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+/**
+ * A dialog. `small` narrows it to popup size. `locked` makes it a real prompt:
+ * no close button, and neither Escape nor a click outside dismisses it, so the
+ * only way out is to answer.
+ */
+export function Modal({
+  title, onClose, children, wide, small, locked,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  wide?: boolean;
+  small?: boolean;
+  locked?: boolean;
+}) {
   React.useEffect(() => {
+    if (locked) return undefined;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, locked]);
+  const width = wide ? 'min(1000px, 100%)' : small ? 'min(400px, 100%)' : undefined;
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={wide ? { width: 'min(1000px, 100%)' } : undefined} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={locked ? undefined : onClose}>
+      <div className="modal" style={width ? { width } : undefined} onClick={(e) => e.stopPropagation()}>
         <div className="row between" style={{ marginBottom: 14 }}>
           <h2 style={{ margin: 0, fontSize: 17 }}>{title}</h2>
-          <button className="btn sm ghost" onClick={onClose}>✕</button>
+          {!locked && <button className="btn sm ghost" onClick={onClose}>✕</button>}
         </div>
         {children}
       </div>
     </div>
+  );
+}
+
+/** One move on one line: name, type, and what it does. */
+export function MoveInfo({ move }: { move: MoveDef }) {
+  return (
+    <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+      <b>{move.name}</b>
+      <TypeTag type={move.type} />
+      <span className="tiny dim">Pow {move.power} · Acc {move.accuracy}% · {move.category}</span>
+    </span>
   );
 }
 

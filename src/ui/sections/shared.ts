@@ -26,8 +26,9 @@ export { EVENT_EGG_FORMS, eventFormFor } from '../../game/content';
 export { highLowOdds, cardName as hiLoCardName } from '../../game/casino';
 export { diamondExchangeCost, DIAMOND_EXCHANGE_GAIN, DIAMOND_EXCHANGE_GROWTH } from '../../game/state';
 export {
-  BALLS, BALL_BY_ID, MOVES, battleCoins, battleXp, ballContextFor, catchChance, movesFor, movesForMon,
-  learnsetOf, tierOf, effectiveSpeed, actsFirst, biomeLevelRange, levelBonus,
+  BALLS, BALL_BY_ID, MOVES, MOVES_PER_MON, battleCoins, battleXp, ballContextFor, catchChance, movesFor, movesForMon,
+  learnsetOf, tierOf, effectiveSpeed, actsFirst, biomeLevelRange, levelBonus, knownMoveIds, relearnableMoves,
+  LEGENDARY_MIN_WILD_LEVEL, minWildLevel, canSpawnWild,
 } from '../../game/battle';
 export { breedingCompatible, breedingTime, canRebirth, rebirthGain } from '../../game/reducer';
 export {

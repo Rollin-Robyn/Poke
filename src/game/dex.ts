@@ -145,13 +145,20 @@ export function xpForLevel(level: number): number {
 export const MAX_LEVEL = 100;
 
 // ---------------------------------------------------------- derived value ---
-/** Base coin output per minute for a species at level 1, before modifiers. */
+/**
+ * Base coin output per minute for a species at level 1, before modifiers.
+ *
+ * The ladder is deliberately shallow: a legendary earns about 6.7× what a
+ * common does, not the 28× it used to. Rarity still matters (it decides what a
+ * habitat will house at all), but one rare monster no longer outearns a whole
+ * reserve of common ones.
+ */
 export const RARITY_OUTPUT: Record<Rarity, number> = {
   common: 60,
-  uncommon: 140,
-  rare: 320,
-  epic: 700,
-  legendary: 1700,
+  uncommon: 100,
+  rare: 160,
+  epic: 250,
+  legendary: 400,
 };
 
 export const RARITY_HATCH_TIME: Record<Rarity, number> = {
