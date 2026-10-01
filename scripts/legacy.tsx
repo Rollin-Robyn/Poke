@@ -192,7 +192,7 @@ check('the game loop runs 10 minutes without throwing', tickError === null, (tic
 check('the battle keeps fighting with a stale team uid', s.battle.team.length === 2, JSON.stringify(s.battle.team));
 // cooldowns belonged to the real-time battle system that is gone
 check('battle players carry hit points only', s.battle.players.every((p) => typeof p.hp === 'number' && !('cooldown' in p)));
-check('the battle picks up the tier of its area', s.battle.tier >= 1 && s.battle.tier <= 4, String(s.battle.tier));
+check('the battle picks up the tier of its area', s.battle.tier >= 1 && s.battle.tier <= 2, String(s.battle.tier));
 check('hourly crate state is dropped on migration', !('crates' in s));
 // the shiny dex record did not exist when this save was written
 check('an old save gains an empty shiny record', Array.isArray(s.dexShiny), JSON.stringify(s.dexShiny));

@@ -19,15 +19,15 @@ Ten screens, wired together so each one feeds the next.
 | --- | --- |
 | **Dashboard** | Every currency (coins, diamonds, rebirth coins, event tokens), coins/hour and coins/day, the habitat widget, manually collectible pending habitat cash, the **expensive coin exchange** (coins → diamonds) and the activity log. |
 | **My Habitats** | The habitats you own as instances, with the monsters inside them and their income. Monotype habitats are cheap; multitype habitats hold two or three types and cost a fortune. Both get more expensive the more of that class you own, and you can own duplicates. A fresh habitat holds **one** monster; capacity upgrades add room independently, while a separate premium rarity track raises the rarity ceiling. |
-| **Eggs** | Stockpile with a **3-slot starting cap** and an upgradable cap, five incubator tiers (faster + more slots), multiple purchasable egg tiers from Field through Ascendant, a buy-egg section and the seasonal **festival egg**. Hatching always gives a **level 1** monster — the reward is rarity, not levels. |
+| **Eggs** | Stockpile with a **3-slot starting cap** and an upgradable cap, five incubator tiers (faster + more slots), multiple purchasable egg tiers from Field through Ascendant, a buy-egg section and the seasonal **festival egg**. Incubation completes at **level 1** and leaves the egg ready in its slot until you manually click **Hatch** — the reward is rarity, not levels. |
 | **My Pokémon** | The full roster as cards: art, types, nature, production/min, happiness and sleep timer. Search by name and filter by type, rarity, location and shiny status; sort by level / output / rarity / dex number / recent. Hold items, feed berries, evolve, release. |
 | **Pokédex** | All 649 species. Uncaught species show a `?`. Detail view with base stats, breeding data, evolutions, the **moves by level** learnset, and whether this species' gallery frames are open. |
 | **Gallery** | Individual pages for every caught species plus optional artwork frames. One frame per picture found in `public/gallery/`; a caught species page opens immediately, and a shiny frame opens only when you catch one **shiny**. Artwork is not the battle sprites, and nothing is bought with diamonds. |
 | **Breeding** | Zones, an active pair display and parent selection. One male + one female sharing an egg group. The female determines the offspring species; selected male IVs, inherited egg moves and TMs carry over, with Destiny Knot selecting five male IVs. Parents rest afterwards. |
-| **Battle** | Turn-based and played **by hand**. You pick a move, then both monsters act once, ordered by move priority, then speed, then held items (Choice Scarf, Quick Claw, Macho Brace) — with a speed roll, so a close call can go either way. A team of **six**; every monster knows the four moves it learned most recently from its species' learnset, so moves grow with level. You can manually switch mid-fight as your turn; the wild move selected before the switch still targets the deployed monster. Ordinary biomes share the same Lv.2–8 base band, wild levels rise by +4 per biome passed in the current run (capped at +92), route types are weighted rather than exclusive, and special routes can appear after three passed biomes. Twelve areas in four tiers keep the scenery varied. Catching with 14 ball types — a throw costs the turn — and trainer battles every 25th win. |
+| **Battle** | Turn-based and played **by hand**. You pick a move, then both monsters act once, ordered by move priority, then speed, then held items (Choice Scarf, Quick Claw, Macho Brace) — with a speed roll, so a close call can go either way. A team of **six**; every monster knows the four moves it learned most recently from its species' learnset, so moves grow with level. You can manually switch mid-fight as your turn; the wild move selected before the switch still targets the deployed monster. Ordinary biomes share one Lv.2–8 tier and rule set, wild levels rise by +4 per biome passed in the current run (capped at +92), route types are weighted rather than exclusive, and only special routes can appear as a distinct tier after three passed biomes. The next biome is entered randomly after the encounter threshold; there is no direct travel picker. Catching with 14 ball types — a throw costs the turn — and trainer battles every 25th win. |
 | **Events** | Four seasonal events driven by the real calendar, each unlocking forms that exist in your repo and paying out **epic-tier** rewards for event tokens. |
 | **Casino** | Six minigames, coins or diamonds, and the stake is an exact amount you type — never forced all-in. |
-| **Resort** | Diamond upgrades, achievements (mostly coins, with small diamond rewards reserved for difficult milestones), the bag, **rebirth** and hard reset. |
+| **Resort** | Diamond upgrades, manually claimable achievements (mostly coins, with small diamond rewards reserved for difficult milestones), the bag, **rebirth** and hard reset. |
 | **Settings** | ⚙️ in the header: game options, export/import a save, and a reset that really clears the stored save. |
 
 **Currencies:** coins (the main engine), diamonds (the **coin exchange**, achievements, rare
@@ -71,11 +71,11 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 
 ## Rules that are enforced (and tested)
 
-`npm run checks` asserts the design rules against the real game logic — 171 checks:
+`npm run checks` asserts the design rules against the real game logic — 183 checks:
 
 - the starter flow hands over **only** the chosen starter, in a **monotype habitat of its own
-  type**, level 1, with no free monsters and no extra habitats;
-- hatched monsters are always level 1, and only the egg *rarity* changes;
+  type**, **level 5**, with no free monsters and no extra habitats;
+- eggs complete at level 1 and remain in the incubator until a manual Hatch action; egg rarity changes species odds only — it does not add IV, battle-stat or other stat bonuses;
 - radiant (15 💎), prismatic (45 💎), mythic (120 💎) and ascendant (300 💎) eggs are diamond-only;
 - multitype habitats cost >100× a monotype one, prices creep with each purchase, duplicates
   are allowed; each habitat’s capacity is exactly `1 + capacity upgrades`, independent of rarity upgrades;
@@ -91,12 +91,14 @@ It also pays a pile of diamonds, so a rebirth funds the next run's incubators.
 - a monster knows the four moves it learned most recently from a per-species learnset
   (`npm run data` builds it, seeded so it is reproducible) — level 1 monsters start with
   one or two weak moves, and no move appears twice;
-- ordinary areas share one rarity table and level band, with several route types in each
+- ordinary areas share one tier, rarity table and level band, with several route types in each
   weighted but never exclusive; each passed biome raises wild levels for the current run,
-  and after the configured threshold a special route can appear with rarer/event-weighted
-  spawns;
+  and after the configured threshold a special route can appear randomly as the only distinct
+  tier with rarer/event-weighted spawns; direct biome travel is unavailable;
 - **hourly crates are gone** — habitat income waits in per-habitat pending purses, manual collection is required, offline income respects energy/rest, and the coin exchange is expensive and escalates each trade;
 - capacity and rarity habitat upgrades are separate, and egg storage starts at three slots;
+- the Pokédex mirrors roster search/type/rarity/location/shiny filters; unassigned monsters show base coins per minute;
+- achievements become ready when complete but pay only after a manual, idempotent claim;
 - caught species unlock individual gallery pages, while `npm run gallery` is a separate artwork-import tool;
 - **the reducer is pure** — replaying a dispatch lands in exactly the same place, so one
   starter pick cannot hand out two monsters (React runs reducers twice in StrictMode);
@@ -178,7 +180,7 @@ npm run build      typecheck + production build into dist/
 npm run typecheck  tsc --noEmit
 npm run data       regenerate dex.json / items.json / gallery.json
 npm run gallery    rescan public/gallery and rebuild the manifest
-npm run checks     assert the design rules (171 checks)
+npm run checks     assert the design rules
 npm run smoke      render every screen headlessly on a played save *and* a new one
 npm run legacy     load a pre-rework save and check it migrates cleanly
 npm run verify     typecheck + checks + smoke + build
@@ -211,7 +213,7 @@ nothing, is still sitting on its 500 starting coins after seven days.
 A fight is short: three to five turns is typical, because damage now follows the real
 formula and scales with level. Passing a biome pushes the shared wild level band up by
 four levels (capped at +92 for the run); a full-party wipe resets that expedition progress.
-After three passed biomes, rotations can also land on a special route. Storage fills up at
+After three passed biomes, random rotations can also land on a special route; ordinary routes never become separate tiers. Storage fills up at
 400 monsters around day four, so the mid-game is about quality and habitat slots, not hoarding.
 
 Rebirth curve: 5 M lifetime → +2 coins, 100 M → +12, 1 B → +44, 1 T → +1995.

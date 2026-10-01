@@ -6,7 +6,7 @@ export {
 export type { DexEntry, Rarity } from './dex';
 
 export {
-  BIOMES, BIOME_BY_ID, CASINO_GAMES, EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, EVENTS, HABITATS,
+  BIOMES, BIOME_BY_ID, BIOME_TIERS, CASINO_GAMES, EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, EVENTS, HABITATS,
   SPECIAL_BIOME_AFTER, SPECIAL_BIOME_CHANCE,
   HABITAT_BY_ID, INCUBATORS, INCUBATOR_BY_ID, ITEMS, ITEM_BY_ID, MONO_HABITATS, MONO_BASE_COST,
   MULTI_HABITATS, SLOT_SYMBOLS, currentEvent, eventCurrencyName, habitatAccepts, nextHabitatCost,
@@ -30,6 +30,6 @@ export {
   BALLS, BALL_BY_ID, MOVES, battleCoins, battleXp, ballContextFor, biomeLevelRange, biomePool, catchChance, levelBonus, learnsetOf, movesFor, movesForMon,
 } from './battle';
 export type { BallDef, CatchContext, MoveDef } from './battle';
-export { breedingCompatible, breedingTime, canRebirth, rebirthGain } from './reducer';
+export { breedingCompatible, breedingTime, canRebirth, rebirthGain, STARTER_LEVEL } from './reducer';
 export { TYPE_COLORS, TYPE_GLYPH, TYPES, typeMultiplier, effectivenessLabel } from './typechart';
 export { clamp, fmt, fmtPct, fmtTime } from './rng';

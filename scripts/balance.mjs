@@ -180,6 +180,12 @@ function greedy(s, t) {
   // no output multipliers any more: money comes from capacity and rarity
   buyUpgrade('eggStorage') || buyUpgrade('stamina') || buyUpgrade('campSpeed') || buyUpgrade('happiness');
 
+  // The scripted player also has to click completed eggs; incubation never
+  // hatches automatically in the game.
+  for (const hatch of [...s.hatches]) {
+    if (hatch.remaining <= 0) reduce(s, { type: 'HATCH_EGG', hatchId: hatch.id });
+  }
+
   // keep every incubator busy with the best coin egg affordable, and buy incubators
   const incSlots = g.totalIncubatorSlots(s);
   const owned = s.shopUnlocked.filter((u) => u.startsWith('inc:')).map((u) => u.slice(4));

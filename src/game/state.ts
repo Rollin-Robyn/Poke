@@ -186,6 +186,7 @@ export interface GameState {
   formsUnlocked: string[];
   /** retired: frames used to be bought with diamonds. Kept so old saves load. */
   galleryUnlocked: string[];
+  /** achievement ids whose rewards the player has manually claimed */
   achievements: string[];
   shopUnlocked: string[];
 

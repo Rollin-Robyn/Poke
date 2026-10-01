@@ -234,12 +234,12 @@ export interface EggTierDef {
 export const EGG_TIERS: EggTierDef[] = [
   { id: 'common', rarity: 'common', name: 'Field Egg', cost: 900, currency: 'coins', minutes: 3, shinyChance: 1 / 1024, blurb: 'Cheap and quick. Mostly common monsters.' },
   { id: 'uncommon', rarity: 'uncommon', name: 'Hatchling Egg', cost: 6_500, currency: 'coins', minutes: 10, shinyChance: 1 / 900, blurb: 'A better class of monster.' },
-  { id: 'rare', rarity: 'rare', name: 'Reserve Egg', cost: 48_000, currency: 'coins', minutes: 30, shinyChance: 1 / 700, blurb: 'Rare bloodlines, better base stats.' },
+  { id: 'rare', rarity: 'rare', name: 'Reserve Egg', cost: 48_000, currency: 'coins', minutes: 30, shinyChance: 1 / 700, blurb: 'A rarer species pool; the egg adds no IV or battle-stat bonus.' },
   { id: 'rare-plus', rarity: 'rare', name: 'Prime Reserve Egg', cost: 240_000, currency: 'coins', minutes: 70, shinyChance: 1 / 600, blurb: 'A premium rare pool for established reserves.' },
-  { id: 'epic', rarity: 'epic', name: 'Radiant Egg', cost: 15, currency: 'diamonds', minutes: 90, shinyChance: 1 / 400, blurb: 'Bought with diamonds only. Strong monsters.' },
-  { id: 'epic-plus', rarity: 'epic', name: 'Prismatic Egg', cost: 45, currency: 'diamonds', minutes: 180, shinyChance: 1 / 300, blurb: 'A deeper epic pool with better shiny odds.' },
-  { id: 'legendary', rarity: 'legendary', name: 'Mythic Egg', cost: 120, currency: 'diamonds', minutes: 300, shinyChance: 1 / 220, blurb: 'Diamonds only. Legends and mythicals sleep in these.' },
-  { id: 'mythic', rarity: 'legendary', name: 'Ascendant Egg', cost: 300, currency: 'diamonds', minutes: 480, shinyChance: 1 / 140, blurb: 'The deepest purchasable pool for the rarest monsters.' },
+  { id: 'epic', rarity: 'epic', name: 'Radiant Egg', cost: 15, currency: 'diamonds', minutes: 90, shinyChance: 1 / 400, blurb: 'Bought with diamonds only. A higher-rarity species pool, not a stat multiplier.' },
+  { id: 'epic-plus', rarity: 'epic', name: 'Prismatic Egg', cost: 45, currency: 'diamonds', minutes: 180, shinyChance: 1 / 300, blurb: 'A deeper epic species pool with better shiny odds, never better IVs.' },
+  { id: 'legendary', rarity: 'legendary', name: 'Mythic Egg', cost: 120, currency: 'diamonds', minutes: 300, shinyChance: 1 / 220, blurb: 'Diamonds only. Legends and mythicals sleep in these; rarity changes odds, not IVs.' },
+  { id: 'mythic', rarity: 'legendary', name: 'Ascendant Egg', cost: 300, currency: 'diamonds', minutes: 480, shinyChance: 1 / 140, blurb: 'The deepest species pool; no egg-tier bonus is applied to generated stats.' },
 ];
 
 /** Every egg hatches at level 1 - rarity is the reward, not levels. */
@@ -298,21 +298,23 @@ export const INCUBATOR_BY_ID: Record<string, IncubatorDef> = Object.fromEntries(
  * ---------------------------------------------------------------------------
  *  BATTLE BIOMES
  *
- * Areas are grouped into four tiers. A tier sets the level range, how rare the
- * monsters that live there are, and how hard it is to reach; inside a tier
- * there are several areas, and the trail picks one of them at random, so the
- * same rarity keeps looking different. Clearing encounters is what pushes the
- * level range up and opens the chance of wandering into a rarer tier.
+ * Ordinary routes deliberately share one tier, one level band and one spawn
+ * table. The only distinct tier is the special-route tier, which is entered
+ * by random progression after enough encounters have been cleared.
  * ---------------------------------------------------------------------------
  */
-export type BiomeTier = 1 | 2 | 3 | 4;
+export type BiomeTier = 1 | 2;
+
+/** A run must pass this many biomes before a special route can appear. */
+export const SPECIAL_BIOME_AFTER = 3;
+export const SPECIAL_BIOME_CHANCE = 0.28;
 
 export interface BiomeTierDef {
   tier: BiomeTier;
   name: string;
   /** the level band wild monsters fall in before the encounter bonus */
   levelRange: [number, number];
-  /** spawn weights per rarity - rarer tiers are where the good monsters live */
+  /** spawn weights per rarity for this rule set */
   rarity: Record<Rarity, number>;
   /** encounters that must be cleared before this tier can turn up at all */
   unlockCleared: number;
@@ -324,8 +326,6 @@ export interface BiomeTierDef {
 }
 
 export const BIOME_TIERS: BiomeTierDef[] = [
-  // These are route labels, not rarity gates. Every ordinary biome uses the
-  // same level band and spawn table; only a run's passed-biome count scales it.
   {
     tier: 1, name: 'Ordinary routes', levelRange: [2, 8], unlockCleared: 0, unlockLevel: 1,
     accent: '#6fbf73',
@@ -333,28 +333,16 @@ export const BIOME_TIERS: BiomeTierDef[] = [
     weight: () => 1,
   },
   {
-    tier: 2, name: 'Ordinary routes', levelRange: [2, 8], unlockCleared: 0, unlockLevel: 1,
-    accent: '#4d90d0',
-    rarity: { common: 100, uncommon: 32, rare: 7, epic: 0.6, legendary: 0.05 },
-    weight: () => 1,
-  },
-  {
-    tier: 3, name: 'Ordinary routes', levelRange: [2, 8], unlockCleared: 0, unlockLevel: 1,
-    accent: '#e0653a',
-    rarity: { common: 100, uncommon: 32, rare: 7, epic: 0.6, legendary: 0.05 },
-    weight: () => 1,
-  },
-  {
-    tier: 4, name: 'Ordinary routes', levelRange: [2, 8], unlockCleared: 0, unlockLevel: 1,
-    accent: '#5b4a6b',
-    rarity: { common: 100, uncommon: 32, rare: 7, epic: 0.6, legendary: 0.05 },
-    weight: () => 1,
+    tier: 2, name: 'Special routes', levelRange: [2, 8], unlockCleared: SPECIAL_BIOME_AFTER, unlockLevel: 1,
+    accent: '#b875d1',
+    rarity: { common: 35, uncommon: 42, rare: 28, epic: 10, legendary: 2.5 },
+    weight: (cleared) => Math.max(0.05, Math.min(1.5, (cleared - SPECIAL_BIOME_AFTER + 1) / 10)),
   },
 ];
 
 export const BIOME_TIER_BY_ID: Record<number, BiomeTierDef> =
   Object.fromEntries(BIOME_TIERS.map((t) => [t.tier, t]));
-export const MAX_BIOME_TIER = BIOME_TIERS.length;
+export const MAX_BIOME_TIER = Math.max(...BIOME_TIERS.map((t) => t.tier));
 
 export interface BiomeDef {
   id: string;
@@ -373,26 +361,24 @@ const ORDINARY_BIOMES: BiomeDef[] = [
   { id: 'meadow', name: 'Sunny Meadow', tier: 1, types: ['Normal', 'Grass', 'Bug'], blurb: 'A gentle route with a familiar mix of Pokémon.', accent: '#6fbf73' },
   { id: 'cave', name: 'Damp Cave', tier: 1, types: ['Rock', 'Ground', 'Poison'], blurb: 'Dark, humid and full of stones.', accent: '#a08a60' },
   { id: 'forest', name: 'Deep Forest', tier: 1, types: ['Bug', 'Grass', 'Dark'], blurb: 'The canopy swallows the light.', accent: '#4f9d5b' },
-  { id: 'shore', name: 'Rugged Shore', tier: 2, types: ['Water', 'Ice', 'Flying'], blurb: 'Salt spray and stubborn Pokémon.', accent: '#4d90d0' },
-  { id: 'ruins', name: 'Forgotten Ruins', tier: 2, types: ['Psychic', 'Ghost', 'Fairy'], blurb: 'Something is still thinking in there.', accent: '#a883ec' },
-  { id: 'canyon', name: 'Dusty Canyon', tier: 2, types: ['Ground', 'Rock', 'Fighting'], blurb: 'Red rock, hot wind, nowhere to hide.', accent: '#c98b5e' },
-  { id: 'caldera', name: 'Ash Caldera', tier: 3, types: ['Fire', 'Dragon', 'Steel'], blurb: 'The air itself is hot enough to fight.', accent: '#e0653a' },
-  { id: 'summit', name: 'Frost Summit', tier: 3, types: ['Ice', 'Dragon', 'Fighting'], blurb: 'Only the strong get up here.', accent: '#8fd4e8' },
-  { id: 'plateau', name: 'Storm Plateau', tier: 3, types: ['Electric', 'Steel', 'Flying'], blurb: 'Every hair on your arm stands up.', accent: '#c9b037' },
-  { id: 'void', name: 'Hollow Void', tier: 4, types: ['Ghost', 'Dark', 'Psychic'], blurb: 'Strange route, familiar odds — for now.', accent: '#5b4a6b' },
-  { id: 'abyss', name: 'Abyssal Trench', tier: 4, types: ['Water', 'Dark', 'Dragon'], blurb: 'Down here the pressure has opinions.', accent: '#2f7f8f' },
-  { id: 'spire', name: 'Sky Spire', tier: 4, types: ['Fairy', 'Dragon', 'Flying'], blurb: 'A staircase of cloud and old bone.', accent: '#d78ad0' },
+  { id: 'shore', name: 'Rugged Shore', tier: 1, types: ['Water', 'Ice', 'Flying'], blurb: 'Salt spray and stubborn Pokémon.', accent: '#4d90d0' },
+  { id: 'ruins', name: 'Forgotten Ruins', tier: 1, types: ['Psychic', 'Ghost', 'Fairy'], blurb: 'Something is still thinking in there.', accent: '#a883ec' },
+  { id: 'canyon', name: 'Dusty Canyon', tier: 1, types: ['Ground', 'Rock', 'Fighting'], blurb: 'Red rock, hot wind, nowhere to hide.', accent: '#c98b5e' },
+  { id: 'caldera', name: 'Ash Caldera', tier: 1, types: ['Fire', 'Dragon', 'Steel'], blurb: 'The air itself is hot enough to fight.', accent: '#e0653a' },
+  { id: 'summit', name: 'Frost Summit', tier: 1, types: ['Ice', 'Dragon', 'Fighting'], blurb: 'Only the strong get up here.', accent: '#8fd4e8' },
+  { id: 'plateau', name: 'Storm Plateau', tier: 1, types: ['Electric', 'Steel', 'Flying'], blurb: 'Every hair on your arm stands up.', accent: '#c9b037' },
+  { id: 'void', name: 'Hollow Void', tier: 1, types: ['Ghost', 'Dark', 'Psychic'], blurb: 'Strange route, familiar odds — for now.', accent: '#5b4a6b' },
+  { id: 'abyss', name: 'Abyssal Trench', tier: 1, types: ['Water', 'Dark', 'Dragon'], blurb: 'Down here the pressure has opinions.', accent: '#2f7f8f' },
+  { id: 'spire', name: 'Sky Spire', tier: 1, types: ['Fairy', 'Dragon', 'Flying'], blurb: 'A staircase of cloud and old bone.', accent: '#d78ad0' },
 ];
 
 /** Special routes use the same level scaling but a rarer/event-weighted pool. */
 export const SPECIAL_BIOMES: BiomeDef[] = [
-  { id: 'mystery-grove', name: 'Mystery Grove', tier: 4, types: ['Grass', 'Fairy', 'Psychic', 'Bug'], blurb: 'A rare route where event Pokémon and unusual forms gather.', accent: '#b875d1', special: true },
-  { id: 'ancient-sanctum', name: 'Ancient Sanctum', tier: 4, types: ['Rock', 'Dragon', 'Steel', 'Ground'], blurb: 'Old fossils and unusually powerful wild Pokémon.', accent: '#d49a54', special: true },
-  { id: 'mirage-isle', name: 'Mirage Isle', tier: 4, types: ['Water', 'Flying', 'Ice', 'Dragon'], blurb: 'A disappearing island with a chance at event rarities.', accent: '#5fc4cf', special: true },
+  { id: 'mystery-grove', name: 'Mystery Grove', tier: 2, types: ['Grass', 'Fairy', 'Psychic', 'Bug'], blurb: 'A rare route where event Pokémon and unusual forms gather.', accent: '#b875d1', special: true },
+  { id: 'ancient-sanctum', name: 'Ancient Sanctum', tier: 2, types: ['Rock', 'Dragon', 'Steel', 'Ground'], blurb: 'Old fossils and unusually powerful wild Pokémon.', accent: '#d49a54', special: true },
+  { id: 'mirage-isle', name: 'Mirage Isle', tier: 2, types: ['Water', 'Flying', 'Ice', 'Dragon'], blurb: 'A disappearing island with a chance at event rarities.', accent: '#5fc4cf', special: true },
 ];
 
-export const SPECIAL_BIOME_AFTER = 3;
-export const SPECIAL_BIOME_CHANCE = 0.28;
 export const BIOMES: BiomeDef[] = [...ORDINARY_BIOMES, ...SPECIAL_BIOMES];
 export const BIOME_BY_ID: Record<string, BiomeDef> = Object.fromEntries(BIOMES.map((b) => [b.id, b]));
 
