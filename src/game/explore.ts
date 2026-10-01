@@ -172,23 +172,22 @@ function sandTile(isSand: (dx: number, dy: number) => boolean): TileRef {
   return S.fill;
 }
 
-export function buildRouteMap(): ExploreMap {
-  const iw = INTERIOR[0].length;
-  const ih = INTERIOR.length;
-  const width = iw + BORDER_X * 2;
-  const height = ih + BORDER_Y * 2;
+interface CellArt {
+  ground: TileRef[];
+  over: (TileRef | null)[];
+  solid: boolean[];
+  grass: boolean[];
+  spawn: { x: number; y: number; facing: Dir };
+}
+
+/** Turns a character grid into tile art: road autotiles, grass, stamps. */
+function materialise(width: number, height: number, cell: (x: number, y: number) => string): CellArt {
   const at = (x: number, y: number) => y * width + x;
   const ground: TileRef[] = new Array(width * height);
   const over: (TileRef | null)[] = new Array(width * height).fill(null);
   const solid: boolean[] = new Array(width * height).fill(false);
   const grass: boolean[] = new Array(width * height).fill(false);
 
-  const cell = (x: number, y: number): string => {
-    const ix = x - BORDER_X;
-    const iy = y - BORDER_Y;
-    if (ix < 0 || iy < 0 || ix >= iw || iy >= ih) return '#';
-    return INTERIOR[iy][ix];
-  };
   const sandAt = (x: number, y: number) => {
     const c = cell(x, y);
     return c === 's' || c === '@';
@@ -239,15 +238,44 @@ export function buildRouteMap(): ExploreMap {
     }
   }
 
-  // the tree wall: along the top and bottom first, then down both sides
+  return { ground, over, solid, grass, spawn };
+}
+
+/** The tree wall around a play area: top and bottom first, then both sides. */
+function treeWall(width: number, height: number, stamp: (x: number, y: number) => void): void {
   for (let x = 0; x < width; x += TREE_W) {
-    stamp(x, 0, TILES.tree);
-    stamp(x, height - TREE_H, TILES.tree);
+    stamp(x, 0);
+    stamp(x, height - TREE_H);
   }
   for (let y = TREE_H; y < height - TREE_H; y += TREE_H) {
-    stamp(0, y, TILES.tree);
-    stamp(width - TREE_W, y, TILES.tree);
+    stamp(0, y);
+    stamp(width - TREE_W, y);
   }
+}
+
+export function buildRouteMap(): ExploreMap {
+  const iw = INTERIOR[0].length;
+  const ih = INTERIOR.length;
+  const width = iw + BORDER_X * 2;
+  const height = ih + BORDER_Y * 2;
+  const cell = (x: number, y: number): string => {
+    const ix = x - BORDER_X;
+    const iy = y - BORDER_Y;
+    if (ix < 0 || iy < 0 || ix >= iw || iy >= ih) return '#';
+    return INTERIOR[iy][ix];
+  };
+  const art = materialise(width, height, cell);
+  const at = (x: number, y: number) => y * width + x;
+  treeWall(width, height, (x, y) => {
+    for (let dy = 0; dy < TILES.tree.length; dy++) {
+      for (let dx = 0; dx < TILES.tree[dy].length; dx++) {
+        const i = at(x + dx, y + dy);
+        art.over[i] = TILES.tree[dy][dx];
+        art.solid[i] = true;
+        art.grass[i] = false;
+      }
+    }
+  });
 
   return {
     id: 'test-route',
@@ -255,17 +283,282 @@ export function buildRouteMap(): ExploreMap {
     biomeId: 'meadow',
     width,
     height,
-    ground,
-    over,
-    solid,
-    grass,
-    spawn,
-    followerStart: { x: spawn.x, y: spawn.y + 1 },
+    ground: art.ground,
+    over: art.over,
+    solid: art.solid,
+    grass: art.grass,
+    spawn: art.spawn,
+    followerStart: { x: art.spawn.x, y: art.spawn.y + 1 },
   };
 }
 
-/** The one route there is for now. */
+/** The route the screen opens on. */
 export const TEST_ROUTE: ExploreMap = buildRouteMap();
+
+// --------------------------------------------------------- generated routes --
+/** A tiny deterministic PRNG, so one seed always rebuilds the same route. */
+export function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const ROUTE_OPENERS = [
+  'Windswept', 'Quiet', 'Amber', 'Misty', 'Sunlit', 'Rocky', 'Whispering', 'Dewy',
+  'Golden', 'Thistle', 'Bracken', 'Pebble', 'Fern', 'Sorrel', 'Marl', 'Gorse',
+];
+const ROUTE_KINDS = [
+  'Path', 'Trail', 'Lane', 'Crossing', 'Hollow', 'Ridge', 'Meadow', 'Walk', 'Pass', 'Glade',
+];
+
+/** A route name that reads like a place, from the seed. */
+export function routeName(seed: number): string {
+  const rnd = mulberry32(seed ^ 0x5eed);
+  return `${ROUTE_OPENERS[Math.floor(rnd() * ROUTE_OPENERS.length)]} ${ROUTE_KINDS[Math.floor(rnd() * ROUTE_KINDS.length)]}`;
+}
+
+/**
+ * A brand new route from a seed: a two-tile sand road wanders from the bottom
+ * edge to the top, tall grass grows in patches beside it, and ponds, trees,
+ * bushes and boulders fill the gaps. Only tiles of the shipped tileset are
+ * used, and the same rules as the test route apply: everything is walled in by
+ * conifers and every patch of grass can be walked to.
+ */
+export function buildRandomRoute(seed: number, biomeId = 'meadow'): ExploreMap {
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const map = tryRoute(seed + attempt * 7919, biomeId);
+    if (map && routeIsSound(map)) return map;
+  }
+  // a seed that will not settle: fall back to the hand-made route
+  return buildRouteMap();
+}
+
+function routeIsSound(map: ExploreMap): boolean {
+  const reach = reachableCells(map, map.spawn);
+  let open = 0;
+  let grassCells = 0;
+  let grassReach = 0;
+  for (let i = 0; i < map.solid.length; i++) {
+    if (map.solid[i]) continue;
+    open += 1;
+    if (map.grass[i]) {
+      grassCells += 1;
+      if (reach.has(i)) grassReach += 1;
+    }
+  }
+  const sandValues = new Set(Object.values(TILES.sand).map((t) => t.join(',')));
+  let sand = 0;
+  for (let i = 0; i < map.ground.length; i++) if (sandValues.has(map.ground[i].join(','))) sand += 1;
+  if (sand < 40 || grassCells < 60) return false;
+  if (grassReach !== grassCells) return false;
+  return reach.size / open > 0.9;
+}
+
+function tryRoute(seed: number, biomeId: string): ExploreMap | null {
+  const rnd = mulberry32(seed);
+  const pick = (n: number) => Math.floor(rnd() * n);
+  const iw = 30 + 2 * pick(5);          // 30..38 inside columns
+  const ih = 19 + 2 * pick(4);          // 19..25 inside rows
+  const width = iw + BORDER_X * 2;
+  const height = ih + BORDER_Y * 2;
+  if (width * height > 2000) return null;
+
+  const g: string[][] = Array.from({ length: ih }, () => new Array<string>(iw).fill('.'));
+  const at = (x: number, y: number) => y * width + x;
+  const inI = (x: number, y: number) => x >= 0 && y >= 0 && x < iw && y < ih;
+
+  // --- the road: a two-tile-wide ribbon climbing from the bottom to the top --
+  const road = new Set<string>();
+  let rx = 2 + 2 * pick(Math.max(1, Math.floor((iw - 6) / 2)));
+  const carveV = (x: number, y: number) => {
+    for (const [dx, dy] of [[0, 0], [1, 0]] as const) {
+      if (inI(x + dx, y + dy)) road.add(`${x + dx},${y + dy}`);
+    }
+  };
+  const carveH = (x: number, y: number) => {
+    for (const [dx, dy] of [[0, 0], [0, 1]] as const) {
+      if (inI(x + dx, y + dy)) road.add(`${x + dx},${y + dy}`);
+    }
+  };
+  let y = ih - 1;
+  const spawnX = rx;
+  const spawnY = ih - 2;
+  while (y >= 0) {
+    carveV(rx, y);
+    // sometimes turn sideways for a while, keeping the ribbon two tiles wide
+    if (y > 1 && y < ih - 2 && rnd() < 0.34) {
+      const dir = rx < 3 ? 1 : rx > iw - 5 ? -1 : rnd() < 0.5 ? 1 : -1;
+      const len = 3 + pick(5);
+      for (let k = 0; k < len; k++) {
+        const nx = rx + dir;
+        if (nx < 1 || nx > iw - 3) break;
+        carveH(Math.min(rx, nx), y);
+        carveH(Math.min(rx, nx), y - 1);
+        rx = nx;
+      }
+      y -= 1;
+      continue;
+    }
+    y -= 1;
+  }
+  for (const key of road) {
+    const [cx, cy] = key.split(',').map(Number);
+    g[cy][cx] = 's';
+  }
+  // shave off any one-tile nub the walk left sticking out of the ribbon
+  for (let pass = 0; pass < 4; pass++) {
+    const isRoad = (x: number, y: number) => inI(x, y) && (g[y][x] === 's' || g[y][x] === '@');
+    let changed = false;
+    for (let cy = 0; cy < ih; cy++) {
+      for (let cx = 0; cx < iw; cx++) {
+        if (g[cy][cx] !== 's') continue;
+        let n = 0;
+        for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (isRoad(cx + dx, cy + dy)) n += 1;
+        if (n < 2) {
+          g[cy][cx] = '.';
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+  // the spawn sits on the road where the walk began, with the road behind it
+  g[spawnY][spawnX] = '@';
+
+  const free = (x: number, y: number, w: number, h: number, want = '.') => {
+    for (let dy = -1; dy <= h; dy++) {
+      for (let dx = -1; dx <= w; dx++) {
+        const cx = x + dx;
+        const cy = y + dy;
+        if (!inI(cx, cy)) return false;
+        if (dx >= 0 && dy >= 0 && dx < w && dy < h) continue;
+        if (g[cy][cx] !== want && g[cy][cx] !== '.') return false;
+      }
+    }
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) if (g[y + dy][x + dx] !== '.') return false;
+    return true;
+  };
+
+  // --- tall grass: soft blobs of it, a little way off the road -------------
+  const openRect = (x: number, y: number, w: number, h: number) => {
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        if (!inI(x + dx, y + dy) || g[y + dy][x + dx] !== '.') return false;
+      }
+    }
+    return true;
+  };
+  const patches = 8 + pick(6);
+  for (let p = 0; p < patches; p++) {
+    const w = 4 + pick(4);
+    const h = 3 + pick(3);
+    const x0 = 1 + pick(Math.max(1, iw - w - 1));
+    const y0 = 1 + pick(Math.max(1, ih - h - 1));
+    if (!openRect(x0, y0, w, h)) continue;
+    for (let dy = 0; dy < h; dy++) {
+      for (let dx = 0; dx < w; dx++) {
+        // round the blob off a little at the corners
+        if ((dx === 0 || dx === w - 1) && (dy === 0 || dy === h - 1) && rnd() < 0.5) continue;
+        g[y0 + dy][x0 + dx] = 'g';
+      }
+    }
+  }
+
+  // --- ponds, trees, flowers and the odd boulder ---------------------------
+  const ponds = pick(3);
+  for (let p = 0; p < ponds; p++) {
+    const x0 = 1 + pick(Math.max(1, iw - POND_SIZE - 2));
+    const y0 = 1 + pick(Math.max(1, ih - POND_SIZE - 2));
+    if (!free(x0, y0, POND_SIZE, POND_SIZE)) continue;
+    g[y0][x0] = 'P';
+    for (let dy = 0; dy < POND_SIZE; dy++) for (let dx = 0; dx < POND_SIZE; dx++) g[y0 + dy][x0 + dx] = 'p';
+  }
+  const trees = 3 + pick(4);
+  for (let t = 0; t < trees; t++) {
+    const x0 = 1 + pick(Math.max(1, iw - TREE_W - 2));
+    const y0 = 1 + pick(Math.max(1, ih - TREE_H - 2));
+    if (!free(x0, y0, TREE_W, TREE_H)) continue;
+    g[y0][x0] = 'T';
+    for (let dy = 0; dy < TREE_H; dy++) for (let dx = 0; dx < TREE_W; dx++) g[y0 + dy][x0 + dx] = 't';
+  }
+  const scatter = (ch: string, n: number) => {
+    for (let k = 0; k < n; k++) {
+      const x = 1 + pick(iw - 2);
+      const y = 1 + pick(ih - 2);
+      if (g[y][x] === '.') g[y][x] = ch;
+    }
+  };
+  scatter('f', 6 + pick(7));
+  scatter('b', 2 + pick(4));
+  scatter('r', 2 + pick(4));
+
+  // --- materialise, with the 'p'/'t' fill cells of stamps kept open-free ----
+  const cell = (x: number, y: number): string => {
+    const ix = x - BORDER_X;
+    const iy = y - BORDER_Y;
+    if (ix < 0 || iy < 0 || ix >= iw || iy >= ih) return '#';
+    const c = g[iy][ix];
+    if (c === 'p' || c === 't') return '#';   // filled in by the stamp below
+    return c;
+  };
+  const art = materialise(width, height, cell);
+  // stamps need placing by hand: materialise only knows the anchors
+  const stampAt = (x0: number, y0: number, art2: TileRef[][]) => {
+    for (let dy = 0; dy < art2.length; dy++) {
+      for (let dx = 0; dx < art2[dy].length; dx++) {
+        const i = at(x0 + dx, y0 + dy);
+        art.over[i] = art2[dy][dx];
+        art.solid[i] = true;
+        art.grass[i] = false;
+      }
+    }
+  };
+  for (let iy = 0; iy < ih; iy++) {
+    for (let ix = 0; ix < iw; ix++) {
+      if (g[iy][ix] === 'P') stampAt(ix + BORDER_X, iy + BORDER_Y, TILES.pond);
+      if (g[iy][ix] === 'T') stampAt(ix + BORDER_X, iy + BORDER_Y, TILES.tree);
+    }
+  }
+  treeWall(width, height, (x, y) => stampAt(x, y, TILES.tree));
+
+  const spawn = { x: art.spawn.x, y: art.spawn.y, facing: 'up' as Dir };
+  const map: ExploreMap = {
+    id: `route-${seed}`,
+    name: routeName(seed),
+    biomeId,
+    width,
+    height,
+    ground: art.ground,
+    over: art.over,
+    solid: art.solid,
+    grass: art.grass,
+    spawn,
+    followerStart: { x: spawn.x, y: spawn.y + 1 },
+  };
+  // Ground the road can never reach is wasted ground. A little of it becomes a
+  // thicket of bushes; a lot of it means the walk boxed an area in, so the seed
+  // is refused and buildRandomRoute grows the next one.
+  const reach = reachableCells(map, spawn);
+  let open = 0;
+  let lost = 0;
+  for (let i = 0; i < map.solid.length; i++) {
+    if (map.solid[i]) continue;
+    open += 1;
+    if (!reach.has(i)) lost += 1;
+  }
+  if (open === 0 || lost / open > 0.12) return null;
+  for (let i = 0; i < map.solid.length; i++) {
+    if (map.solid[i] || reach.has(i)) continue;
+    map.solid[i] = true;
+    map.grass[i] = false;
+    map.over[i] = TILES.bush;
+  }
+  return map;
+}
 
 // ----------------------------------------------------------------- movement --
 export function inBounds(map: ExploreMap, x: number, y: number): boolean {
