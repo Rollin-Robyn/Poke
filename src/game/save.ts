@@ -99,12 +99,24 @@ function migrate(state: GameState): GameState {
     const tier: Rarity = product?.rarity ?? (RARITIES.includes(egg.tier as Rarity) ? egg.tier as Rarity : 'common');
     return { ...egg, tier, eggTierId: product?.id ?? EGG_TIERS.find((candidate) => candidate.rarity === tier)?.id, shiny: !!egg.shiny };
   });
-  merged.hatches ??= [];
+  merged.hatches = Array.isArray(merged.hatches)
+    ? merged.hatches.map((h) => ({
+      ...h,
+      remaining: Math.max(0, Number.isFinite(Number(h.remaining)) ? Number(h.remaining) : 0),
+      total: Math.max(0, Number.isFinite(Number(h.total)) ? Number(h.total) : Number(h.remaining) || 0),
+      shiny: !!h.shiny,
+    }))
+    : [];
   merged.breedingPairs ??= [];
   merged.itemBag ??= {};
   merged.formsUnlocked ??= [];
   merged.galleryUnlocked ??= [];
-  merged.achievements ??= [];
+  // In current saves this array contains claimed achievement ids. Older saves
+  // used the same array for automatically paid rewards, so keeping those ids
+  // preserves already-paid progress without paying it a second time.
+  merged.achievements = Array.isArray(merged.achievements)
+    ? [...new Set(merged.achievements.filter((id) => typeof id === 'string'))]
+    : [];
   merged.shopUnlocked ??= [];
   merged.diamondExchanges = Number(merged.diamondExchanges) || 0;
   merged.dexSeen ??= [];

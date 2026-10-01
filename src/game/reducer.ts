@@ -1,10 +1,9 @@
 import { EVENTS, ITEMS, ITEM_BY_ID, HABITAT_BY_ID, HABITATS, INCUBATORS, INCUBATOR_BY_ID, BIOMES, BIOME_BY_ID, EGG_HATCH_LEVEL, EGG_TIERS, SPECIAL_BIOME_AFTER, SPECIAL_BIOME_CHANCE, eventFormFor, type HabitatDef, type IncubatorDef, type EggTierId } from './content';
-import { ACHIEVEMENTS } from './achievements';
 import { currentEvent } from './content';
 import {
   BALLS, BALL_BY_ID, BALL_IDS, battleCoins, battleXp, catchChance, computeDamage, makeInitialBattle,
   ENCOUNTER_DELAY, WIPE_REST, biomeLevelRange, movesFor, movesForMon, pushBattleLog, rollItemReward, spawnEnemy,
-  rollBiomeTier, randomBiomeOfTier, tierOf, effectiveSpeed, actsFirst, QUICK_CLAW, QUICK_CLAW_CHANCE,
+  randomBiomeOfTier, effectiveSpeed, actsFirst, QUICK_CLAW, QUICK_CLAW_CHANCE,
   WILD_DAMAGE_SCALE, levelBonus, type MoveDef, type TurnSide,
 } from './battle';
 import { DEX, DEX_IDS, RARITIES, RARITY_HATCH_TIME, entry, statsAt, type Rarity } from './dex';
@@ -21,6 +20,8 @@ import { typeMultiplier } from './typechart';
 import type { BattleMon, BattleState, BreedingInheritance, BreedingStat, GameState, Gender, IVSet, Mon, StoredEgg } from './state';
 
 export const SAVE_VERSION = 2;
+/** Starters begin with enough training to make the first battle welcoming. */
+export const STARTER_LEVEL = 5;
 const OFFLINE_CAP_SECONDS = 12 * 3600;
 const TICK_STEP = 1; // seconds of simulation per tick call in the live loop
 
@@ -162,9 +163,12 @@ export function autoAssign(s: GameState): void {
     def: HABITAT_BY_ID[h.defId],
     count: habitatSlots(h) - s.mons.filter((m) => m.habitatId === h.id).length,
   }));
+  const output = (m: Mon) => m.habitatId
+    ? monOutputWithHabitat(s, m)
+    : monBaseOutput(m);
   const candidates = s.mons
     .filter((m) => !m.habitatId && !s.battle.team.includes(m.uid))
-    .sort((a, b) => monOutputWithHabitat(s, b) - monOutputWithHabitat(s, a));
+    .sort((a, b) => output(b) - output(a));
   for (const mon of candidates) {
     const slot = free.find((f) => f.count > 0 && f.def && canEnterHabitat(mon, f.instance, f.def));
     if (!slot) continue;
@@ -192,27 +196,19 @@ function grantItems(s: GameState, itemId: string, qty = 1): void {
   s.stats.itemsFound += qty;
 }
 
-export function checkAchievements(s: GameState): void {
-  for (const a of ACHIEVEMENTS) {
-    if (s.achievements.includes(a.id)) continue;
-    if (a.check(s)) {
-      s.achievements.push(a.id);
-      const coins = a.coins ?? 0;
-      const diamonds = a.diamonds ?? 0;
-      if (coins) {
-        s.coins += coins;
-        s.stats.coinsEarned += coins;
-      }
-      if (diamonds) s.diamonds += diamonds;
-      const reward = [coins ? `⛁${coins.toLocaleString()}` : '', diamonds ? `💎${diamonds}` : '']
-        .filter(Boolean).join(' + ');
-      log(s, `Achievement: ${a.name} (+${reward})`, 'good');
-    }
-  }
+/**
+ * Achievement completion is derived from the current state. Rewards are not
+ * granted here: the player must explicitly dispatch CLAIM_ACHIEVEMENT.
+ * Keeping this hook makes old callers safe while removing the former automatic
+ * collection side effect.
+ */
+export function checkAchievements(_s: GameState): void {
+  // Intentionally empty. The UI evaluates each definition's check predicate
+  // and the action layer validates it again before paying the reward.
 }
 
 // ------------------------------------------------------------------ eggs ---
-function hatchEgg(
+export function hatchEgg(
   s: GameState,
   tier: Rarity,
   shiny: boolean,
@@ -727,7 +723,7 @@ function rotateBiome(s: GameState): void {
   b.biomesPassed += 1;
   const special = BIOMES.filter((x) => x.special && x.id !== b.biomeId);
   const useSpecial = b.biomesPassed >= SPECIAL_BIOME_AFTER && chance(SPECIAL_BIOME_CHANCE) && special.length > 0;
-  const next = useSpecial ? pick(special) : randomBiomeOfTier(current.tier, b.biomeId);
+  const next = useSpecial ? pick(special) : randomBiomeOfTier(1, b.biomeId);
   b.tier = next.tier;
   b.biomeId = next.id;
   b.progress = 0;
@@ -864,13 +860,16 @@ export function simulate(state: GameState, dt: number, opts: { offline?: boolean
   if (ppm > s.stats.bestCoinsPerMin) s.stats.bestCoinsPerMin = ppm;
 
   // --- incubation ----------------------------------------------------------
-  for (const h of [...s.hatches]) {
-    const inc = INCUBATOR_BY_ID[h.incubatorId];
-    h.remaining -= dt * (inc?.speed ?? 1) * incubationMultiplier(s);
+  // Completion is deliberately separate from hatching. A zero-time hatch
+  // keeps occupying its incubator until the player claims it, which also means
+  // a full monster storage cannot silently destroy a finished egg.
+  for (const h of s.hatches) {
     if (h.remaining <= 0) {
-      hatchEgg(s, h.tier, h.shiny, h.parents, h.event, h.inheritance);
-      s.hatches = s.hatches.filter((x) => x.id !== h.id);
+      h.remaining = 0;
+      continue;
     }
+    const inc = INCUBATOR_BY_ID[h.incubatorId];
+    h.remaining = Math.max(0, h.remaining - dt * (inc?.speed ?? 1) * incubationMultiplier(s));
   }
 
   // --- breeding ------------------------------------------------------------

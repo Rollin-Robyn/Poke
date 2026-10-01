@@ -3,7 +3,7 @@ import { useGame } from '../store';
 import { Bar, EggSprite, Modal, Panel } from '../components';
 import {
   EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, INCUBATORS, INCUBATOR_BY_ID, RARITY_HATCH_TIME,
-  RARITY_META, currentEvent, eggStorageCap, fmt, fmtTime, incubationMultiplier, totalIncubatorSlots,
+  RARITY_META, currentEvent, eggStorageCap, fmt, fmtTime, incubationMultiplier, storageCap, totalIncubatorSlots,
 } from './shared';
 
 export function Eggs() {
@@ -24,7 +24,8 @@ export function Eggs() {
           <Bar value={state.eggs.length} max={cap} tone="linear-gradient(90deg,#8fdc8a,#4fae4a)" />
           <div className="small muted" style={{ marginTop: 8 }}>
             Eggs wait here until an incubator is free. Every egg hatches at <b>level {EGG_HATCH_LEVEL}</b> — the reward
-            is a rarer monster, not a higher level.
+            is a rarer monster, not a higher level. When the timer reaches zero, the completed egg stays here until
+            you click <b>Hatch</b>; rarity changes species odds, not IVs or battle stats.
           </div>
           <div className="slots" style={{ marginTop: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(58px, 1fr))' }}>
             {state.eggs.map((e) => {
@@ -48,7 +49,7 @@ export function Eggs() {
           </div>
         </Panel>
 
-        <Panel title="Incubators" right={<span className="tag">{state.hatches.length} / {totalSlots} busy</span>}>
+        <Panel title="Incubators" right={<span className="tag">{state.hatches.length} / {totalSlots} occupied</span>}>
           {ownedIncubators.length === 0 && (
             <div className="muted small">No incubators installed — buy one below to start hatching.</div>
           )}
@@ -68,18 +69,32 @@ export function Eggs() {
                   <div className="slots" style={{ marginTop: 9, gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))' }}>
                     {busy.map((h) => {
                       const meta = RARITY_META[h.tier];
-                      const hrs = h.remaining / Math.max(0.01, (INCUBATOR_BY_ID[h.incubatorId]?.speed ?? 1) * speed);
+                      const complete = h.remaining <= 0;
+                      const remaining = Math.max(0, h.remaining);
                       return (
-                        <div key={h.id} className="slot filled" style={{ flexDirection: 'column', gap: 2, padding: 4, cursor: 'default' }}>
-                          <EggSprite size={26} glow={meta.glow} />
-                          <div className="tiny mono" style={{ color: meta.color }}>{fmtTime(hrs)}</div>
-                          <button
-                            className="btn xs"
-                            onClick={() => dispatch({ type: 'INSTANT_HATCH', hatchId: h.id })}
-                            title={`Rush for ${Math.max(1, Math.ceil(h.remaining / 600))} diamonds`}
-                          >
-                            💎 {Math.max(1, Math.ceil(h.remaining / 600))}
-                          </button>
+                        <div key={h.id} className="slot filled" style={{ flexDirection: 'column', gap: 2, padding: 4, cursor: 'default', borderColor: complete ? 'var(--good)' : meta.color }}>
+                          <EggSprite size={26} glow={complete ? 'rgba(125,220,148,.75)' : meta.glow} />
+                          <div className="tiny mono" style={{ color: complete ? 'var(--good)' : meta.color }}>
+                            {complete ? 'Ready' : fmtTime(remaining)}
+                          </div>
+                          {complete ? (
+                            <button
+                              className="btn xs good"
+                              disabled={state.mons.length >= storageCap(state)}
+                              onClick={() => dispatch({ type: 'HATCH_EGG', hatchId: h.id })}
+                              title="Claim this completed egg"
+                            >
+                              Hatch
+                            </button>
+                          ) : (
+                            <button
+                              className="btn xs"
+                              onClick={() => dispatch({ type: 'INSTANT_HATCH', hatchId: h.id })}
+                              title={`Rush for ${Math.max(1, Math.ceil(remaining / 600))} diamonds`}
+                            >
+                              💎 {Math.max(1, Math.ceil(remaining / 600))}
+                            </button>
+                          )}
                         </div>
                       );
                     })}

@@ -136,26 +136,41 @@ export function Resort() {
         )}
       </Panel>
 
-      <Panel title={`Achievements — ${state.achievements.length} / ${ACHIEVEMENTS.length}`}>
+      <Panel title={`Achievements — ${state.achievements.length} claimed / ${ACHIEVEMENTS.length}`} right={<span className="tiny dim">Complete milestones, then claim their rewards</span>}>
         <div className="grid g3">
           {ACHIEVEMENTS.map((a) => {
-            const done = state.achievements.includes(a.id);
+            const claimed = state.achievements.includes(a.id);
+            const complete = a.check(state);
+            const ready = complete && !claimed;
+            const reward = [a.coins ? `⛁${fmt(a.coins)}` : '', a.diamonds ? `💎${a.diamonds}` : ''].filter(Boolean).join(' + ');
             return (
               <div
                 key={a.id}
                 className="row"
-                style={{ gap: 10, padding: 10, borderRadius: 11, border: '1px solid var(--line)', opacity: done ? 1 : 0.55 }}
+                style={{ gap: 10, padding: 10, borderRadius: 11, border: `1px solid ${ready ? 'var(--gold)' : 'var(--line)'}`, opacity: claimed ? 0.72 : complete ? 1 : 0.55 }}
               >
-                <div className="hab-icon" style={{ background: done ? 'rgba(125,220,148,.15)' : 'rgba(255,255,255,.05)' }}>
+                <div className="hab-icon" style={{ background: claimed ? 'rgba(125,220,148,.15)' : ready ? 'rgba(246,224,94,.14)' : 'rgba(255,255,255,.05)' }}>
                   {a.icon}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{a.name}</div>
                   <div className="tiny dim">{a.blurb}</div>
+                  <div className="tiny" style={{ color: claimed ? 'var(--good)' : ready ? 'var(--gold)' : 'var(--dim)' }}>
+                    {claimed ? 'Reward claimed' : complete ? 'Complete — reward ready' : 'In progress'}
+                  </div>
                 </div>
-                <span className="tag" style={{ color: done ? 'var(--good)' : a.diamonds ? 'var(--diamond)' : 'var(--gold)', borderColor: done ? 'var(--good)' : a.diamonds ? 'var(--diamond)' : 'var(--gold)' }}>
-                  {done ? '✓' : [a.coins ? `⛁${fmt(a.coins)}` : '', a.diamonds ? `💎${a.diamonds}` : ''].filter(Boolean).join(' + ')}
-                </span>
+                {claimed ? (
+                  <span className="tag" style={{ color: 'var(--good)', borderColor: 'var(--good)' }}>✓ claimed</span>
+                ) : (
+                  <button
+                    className={`btn xs ${ready ? 'primary' : 'ghost'}`}
+                    disabled={!ready}
+                    onClick={() => dispatch({ type: 'CLAIM_ACHIEVEMENT', achievementId: a.id })}
+                    title={ready ? `Claim ${reward}` : complete ? 'Already claimed' : 'Complete the milestone first'}
+                  >
+                    {ready ? `Claim ${reward}` : reward}
+                  </button>
+                )}
               </div>
             );
           })}

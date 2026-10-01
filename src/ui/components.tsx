@@ -1,5 +1,5 @@
 import React from 'react';
-import { DEX, GENDER_ICON, RARITY_META, entry, eggSpriteUrl, itemUrl, monOutputWithHabitat, spriteUrl } from '../game/exports';
+import { DEX, GENDER_ICON, RARITY_META, entry, eggSpriteUrl, itemUrl, monBaseOutput, monOutputWithHabitat, spriteUrl } from '../game/exports';
 import type { GameState, Mon } from '../game/state';
 import { happinessTier, natureBlurb } from '../game/state';
 import { TYPE_COLORS } from '../game/typechart';
@@ -127,7 +127,8 @@ export function MonCard({
   footer?: React.ReactNode;
 }) {
   const e = entry(mon.species);
-  const out = monOutputWithHabitat(state, mon);
+  const baseOut = monBaseOutput(mon);
+  const out = mon.habitatId ? monOutputWithHabitat(state, mon) : baseOut;
   const sleepLeft = mon.energy;
   return (
     <div className={`mon-card ${selected ? 'selected' : ''} ${compact ? 'compact' : ''}`}>
@@ -145,7 +146,7 @@ export function MonCard({
             <span className="tag" title="Nature">{mon.nature}</span>
           </div>
           <div className="meta">
-            <span title="Coins produced per minute">⛁ <b className="out">{fmt(out)}</b>/min</span>
+            <span title={mon.habitatId ? 'Current habitat coins per minute' : 'Base coins per minute before habitat bonus'}>⛁ <b className="out">{fmt(out)}</b>/min{!mon.habitatId && <span className="tiny dim"> base</span>}</span>
             <span title="IV quality">{mon.iv}/31 IV</span>
           </div>
           <div className="stack" style={{ gap: 4 }}>

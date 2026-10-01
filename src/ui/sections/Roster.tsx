@@ -3,7 +3,7 @@ import { useGame } from '../store';
 import { Bar, ItemSprite, Modal, MonCard, Panel, RarityTag, Sprite, TypeTag } from '../components';
 import {
   DEX, HABITAT_BY_ID, ITEMS, ITEM_BY_ID, RARITIES, entry, fmt, fmtTime, happinessTier,
-  monOutputWithHabitat, natureBlurb, storageCap,
+  monBaseOutput, monOutputWithHabitat, natureBlurb, storageCap,
 } from './shared';
 import { EGG_HATCH_LEVEL } from '../../game/content';
 import type { Mon } from '../../game/state';
@@ -44,7 +44,7 @@ export function Roster() {
     });
     const rar = (m: Mon) => RARITIES.indexOf(entry(m.species).rarity);
     switch (state.options.sort) {
-      case 'output': return list.sort((a, b) => monOutputWithHabitat(state, b) - monOutputWithHabitat(state, a));
+      case 'output': return list.sort((a, b) => (b.habitatId ? monOutputWithHabitat(state, b) : monBaseOutput(b)) - (a.habitatId ? monOutputWithHabitat(state, a) : monBaseOutput(a)));
       case 'rarity': return list.sort((a, b) => rar(b) - rar(a) || b.level - a.level);
       case 'dex': return list.sort((a, b) => DEX[a.species].num - DEX[b.species].num);
       case 'recent': return list.reverse();
@@ -183,8 +183,8 @@ export function Roster() {
               <Panel title="Performance">
                 <div className="row" style={{ gap: 20, flexWrap: 'wrap' }}>
                   <div>
-                    <div className="tiny muted">OUTPUT</div>
-                    <div className="big" style={{ fontSize: 20 }}>{fmt(monOutputWithHabitat(state, mon))}/min</div>
+                    <div className="tiny muted">{mon.habitatId ? 'HABITAT OUTPUT' : 'BASE OUTPUT'}</div>
+                    <div className="big" style={{ fontSize: 20 }}>{fmt(mon.habitatId ? monOutputWithHabitat(state, mon) : monBaseOutput(mon))}/min</div>
                   </div>
                   <div>
                     <div className="tiny muted">LEVEL</div>

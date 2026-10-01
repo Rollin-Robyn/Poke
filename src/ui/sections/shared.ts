@@ -18,7 +18,7 @@ export {
   habitatRarityCap, habitatRejection, rarityAllowed,
   habitatCapacityLevel, habitatRarityLevel, habitatPendingCoins, totalPendingHabitatCoins,
   habitatDefOf, habitatFreeSlots, habitatProduction, habitatSlots, happinessTier, housedCount,
-  incubationMultiplier, monOutputWithHabitat, monsInHabitat, natureBlurb, ownedHabitat,
+  incubationMultiplier, monBaseOutput, monOutputWithHabitat, monsInHabitat, natureBlurb, ownedHabitat,
   productionPerMinute, storageCap, totalHabitatSlots, totalIncubatorSlots, upgradeLevel,
 } from '../../game/state';
 export { ACHIEVEMENTS } from '../../game/achievements';

@@ -217,15 +217,12 @@ export function biomeLevelRange(_biome: BiomeDef, biomesPassed: number): [number
 }
 
 /**
- * Species that can show up in an area: matching types, weighted by the rarity
- * table of the tier the area belongs to - common monsters in the quiet country,
- * legendaries only on legendary ground.
+ * Species that can show up in an area: matching types, weighted by the shared
+ * ordinary or special rarity table of the tier the area belongs to.
  */
 export function biomePool(biome: BiomeDef): [string, number][] {
   const pool: [string, number][] = [];
-  const rarityWeight = biome.special
-    ? { common: 35, uncommon: 42, rare: 28, epic: 10, legendary: 2.5 }
-    : { common: 100, uncommon: 32, rare: 7, epic: 0.6, legendary: 0.05 };
+  const rarityWeight = tierOf(biome).rarity;
   for (const id of DEX_IDS) {
     const e = DEX[id];
     if (e.stage > 1 && e.rarity !== 'legendary') continue;
@@ -258,7 +255,8 @@ export function rollBiomeTier(cleared: number, current: BiomeTier): BiomeTier {
 
 /** A random area of a tier, so the same rarity still looks different. */
 export function randomBiomeOfTier(tier: BiomeTier, excludeId?: string): BiomeDef {
-  const inTier = BIOMES.filter((b) => b.tier === tier && !b.special);
+  // Tier 1 is the ordinary pool; tier 2 is intentionally special-only.
+  const inTier = BIOMES.filter((b) => b.tier === tier && (tier === 2 ? !!b.special : !b.special));
   const fresh = inTier.filter((b) => b.id !== excludeId);
   const pool = fresh.length ? fresh : inTier;
   return pick(pool.length ? pool : [BIOMES[0]]);

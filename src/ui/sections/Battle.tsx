@@ -4,14 +4,13 @@ import { Bar, ItemSprite, Modal, Panel, Sprite, TypeTag } from '../components';
 import { TYPE_COLORS, typeMultiplier } from '../../game/typechart';
 import { MAX_TEAM } from '../../game/state';
 import {
-  BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, BIOME_TIERS, DEX, SPECIAL_BIOME_AFTER, SPECIAL_BIOME_CHANCE, ballContextFor, biomeLevelRange, entry, fmt,
-  movesFor, movesForMon, statsAt, tierOf, effectiveSpeed, type BiomeTierDef,
+  BALLS, BALL_BY_ID, BIOMES, BIOME_BY_ID, ballContextFor, biomeLevelRange, entry, fmt,
+  movesFor, movesForMon, statsAt, tierOf, effectiveSpeed,
 } from './shared';
 
 export function Battle() {
   const { state, dispatch } = useGame();
   const [pickTeam, setPickTeam] = useState(false);
-  const [pickBiome, setPickBiome] = useState(false);
   const [ballInfo, setBallInfo] = useState<string | null>(null);
 
   const b = state.battle;
@@ -34,7 +33,6 @@ export function Battle() {
   const enemyMoves = b.enemySpec ? movesFor(b.enemySpec, b.enemyLevel) : [];
   const tier = tierOf(biome);
   const [lo, hi] = biomeLevelRange(biome, b.biomesPassed);
-  const bestLevel = state.mons.reduce((max, m) => Math.max(max, m.level), 0);
   // who would move first this turn - priority and speed, jittered like the games
   const leadSpeed = leadMon
     ? effectiveSpeed({ species: leadMon.species, level: leadMon.level, nature: leadMon.nature, iv: leadMon.iv }, leadMon.heldItem)
@@ -54,11 +52,10 @@ export function Battle() {
             {tier.name} · tier {tier.tier}
           </span>
           <span className="small muted">
-            {b.progress}/{b.rotateAt} encounters until the trail moves on · {fmt(b.biomesPassed)} biomes passed this run · Lv.{lo}–{hi} wild
+            {b.progress}/{b.rotateAt} cleared encounters until a random route change · {fmt(b.biomesPassed)} biomes passed this run · Lv.{lo}–{hi} wild
           </span>
         </div>
         <div className="row" style={{ gap: 6 }}>
-          <button className="btn sm" onClick={() => setPickBiome(true)}>Biome</button>
           <button className="btn sm" onClick={() => setPickTeam(true)}>Team ({b.team.length}/{MAX_TEAM})</button>
           <button className="btn sm" onClick={() => dispatch({ type: 'HEAL_TEAM' })}>Heal</button>
         </div>
@@ -337,58 +334,6 @@ export function Battle() {
         </Modal>
       )}
 
-      {pickBiome && (
-        <Modal title="Where should they go?" onClose={() => setPickBiome(false)} wide>
-          <div className="small muted" style={{ marginBottom: 12 }}>
-            Areas are grouped by how rare the monsters living there are. Rarer ground needs a stronger team
-            and more encounters cleared before it turns up on its own.
-          </div>
-          <div className="stack" style={{ gap: 14 }}>
-            {BIOME_TIERS.map((t: BiomeTierDef) => {
-              const locked = bestLevel < t.unlockLevel || b.cleared < t.unlockCleared;
-              const areas = BIOMES.filter((x) => x.tier === t.tier && !x.special);
-              const specialAreas = BIOMES.filter((x) => x.tier === t.tier && x.special);
-              return (
-                <div key={t.tier}>
-                  <div className="row between" style={{ marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, color: t.accent }}>
-                      Tier {t.tier} — {t.name}
-                    </span>
-                    <span className="tiny dim mono">
-                      {locked
-                        ? `needs a Lv.${t.unlockLevel} monster and ${t.unlockCleared} encounters cleared`
-                        : `Lv.${t.levelRange[0]}–${t.levelRange[1]} wild`}
-                    </span>
-                  </div>
-                  <div className="grid g3">
-                    {areas.map((def) => (
-                      <button
-                        key={def.id}
-                        className="btn"
-                        style={{ display: 'flex', justifyContent: 'space-between', opacity: locked ? 0.45 : 1 }}
-                        disabled={locked}
-                        onClick={() => {
-                          dispatch({ type: 'SET_BIOME', biomeId: def.id });
-                          setPickBiome(false);
-                        }}
-                      >
-                        <span className="row" style={{ gap: 8 }}>
-                          <span style={{ color: def.accent }}>●</span>
-                          {def.name}
-                        </span>
-                        <span className="tiny dim">{def.types.join(' / ')}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {specialAreas.length > 0 && <div className="tiny dim" style={{ marginTop: 6 }}>
-                    ✨ Special routes ({specialAreas.map((x) => x.name).join(', ')}) are not selected manually. After {SPECIAL_BIOME_AFTER} passed biomes, this run has a {Math.round(SPECIAL_BIOME_CHANCE * 100)}% chance to reach one on rotation.
-                  </div>}
-                </div>
-              );
-            })}
-          </div>
-        </Modal>
-      )}
 
     </div>
   );

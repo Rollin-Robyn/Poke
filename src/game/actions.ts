@@ -1,24 +1,25 @@
 import {
-  BIOMES, BIOME_BY_ID, EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, EVENTS, HABITATS, HABITAT_BY_ID,
+  BIOMES, EGG_HATCH_LEVEL, EGG_TIERS, EVENT_EGG, EVENTS, HABITATS, HABITAT_BY_ID,
   INCUBATORS, INCUBATOR_BY_ID, ITEMS, ITEM_BY_ID, MONO_HABITATS, currentEvent, nextHabitatCost,
   capacityUpgradeCost, rarityUpgradeCost, type EggTierId,
 } from './content';
-import { BALL_BY_ID, BALLS, tierOf } from './battle';
+import { BALL_BY_ID, BALLS } from './battle';
 import {
   cardName, playCoinFlip, playDice, playHighLow, playLuckyBoxes, playRoulette, playSlots,
   type RouletteBet,
 } from './casino';
 import { DEX, DEX_IDS, RARITY_HATCH_TIME, entry } from './dex';
+import { ACHIEVEMENTS } from './achievements';
 import {
-  breedingCompatible, breedingTime, checkAchievements, createInitialState, fastForward, makeMon,
-  rebirthGain, simulate, syncBattleTeam, switchBattlePokemon, tryCatch, useMove,
+  breedingCompatible, breedingTime, checkAchievements, createInitialState, fastForward, hatchEgg, makeMon,
+  rebirthGain, simulate, STARTER_LEVEL, syncBattleTeam, switchBattlePokemon, tryCatch, useMove,
 } from './reducer';
 import { chance, clamp, pick, rndInt, uid } from './rng';
 import { BALL_BY_ID as BALL_LOOKUP } from './battle';
 import {
   DIAMOND_UPGRADES, DIAMOND_UPGRADE_BY_ID, UPGRADES, UPGRADE_BY_ID, countHabitatClass, diamondLevel,
   eggStorageCap, globalCoinMultiplier, habitatFreeSlots, habitatRejection, habitatSlots, incubationMultiplier,
-  monOutputWithHabitat, ownedHabitat, productionPerMinute, storageCap, upgradeLevel,
+  monBaseOutput, monOutputWithHabitat, ownedHabitat, productionPerMinute, storageCap, upgradeLevel,
   habitatCapacityLevel, habitatRarityLevel, habitatPendingCoins, totalPendingHabitatCoins,
   diamondExchangeCost, DIAMOND_EXCHANGE_GAIN, MAX_TEAM,
 } from './state';
@@ -50,6 +51,7 @@ export type Action =
   | { type: 'BUY_EVENT_EGG'; qty: number; currency: 'tokens' | 'diamonds' }
   | { type: 'START_HATCH'; eggId: string; incubatorId: string }
   | { type: 'INSTANT_HATCH'; hatchId: string }
+  | { type: 'HATCH_EGG'; hatchId: string }
   | { type: 'BUY_INCUBATOR'; id: string }
   | { type: 'USE_ITEM'; itemId: string; uid?: string }
   | { type: 'SELL_ITEM'; itemId: string; qty: number }
@@ -58,7 +60,6 @@ export type Action =
   | { type: 'EVOLVE'; uid: string; method?: string }
   | { type: 'SET_TEAM'; uids: string[] }
   | { type: 'TOGGLE_TEAM_MEMBER'; uid: string }
-  | { type: 'SET_BIOME'; biomeId: string }
   | { type: 'HEAL_TEAM' }
   | { type: 'THROW_BALL'; ballId: string }
   | { type: 'BUY_BALLS'; ballId: string; qty: number }
@@ -68,6 +69,7 @@ export type Action =
   | { type: 'CLEAR_CASINO' }
   | { type: 'REBIRTH' }
   | { type: 'UNLOCK_FORM'; species: string; form: string; cost: number }
+  | { type: 'CLAIM_ACHIEVEMENT'; achievementId: string }
   | { type: 'CLAIM_EVENT'; rewardIndex: number }
   | { type: 'CONVERT_COINS_TO_DIAMONDS' }
   | { type: 'CLEAR_OFFLINE' }
@@ -119,7 +121,7 @@ export function reduce(state: GameState, action: Action): GameState {
       const starters = ['bulbasaur', 'charmander', 'squirtle'];
       const chosen = starters.includes(action.species) ? action.species : starters[0];
       // you start with exactly one monster
-      const starter = makeMon(chosen, 1);
+      const starter = makeMon(chosen, STARTER_LEVEL);
       s.mons.push(starter);
 
       // and a monotype habitat matching its type, so it has somewhere to live
@@ -374,7 +376,7 @@ export function reduce(state: GameState, action: Action): GameState {
       const total = baseTime / (inc.speed * incubationMultiplier(s));
       s.hatches.push({
         id: uid('h'), eggId: egg.id, tier: egg.tier, eggTierId: egg.eggTierId, shiny: !!egg.shiny,
-        incubatorId: inc.id, remaining: total, total, inheritance: egg.inheritance,
+        incubatorId: inc.id, remaining: total, total, event: egg.event ?? null, inheritance: egg.inheritance,
       });
       s.eggs.splice(eggIdx, 1);
       say(s, `Egg placed in ${inc.name}.`, 'good');
@@ -384,14 +386,33 @@ export function reduce(state: GameState, action: Action): GameState {
     case 'INSTANT_HATCH': {
       const h = s.hatches.find((x) => x.id === action.hatchId);
       if (!h) break;
+      if (h.remaining <= 0) {
+        say(s, 'That egg is complete — claim it with Hatch.', 'info');
+        break;
+      }
       const cost = Math.max(1, Math.ceil(h.remaining / 600));
       if (s.diamonds < cost) {
         say(s, `Needs ${cost} 💎 to rush.`, 'bad');
         break;
       }
       s.diamonds -= cost;
-      h.remaining = 0.001;
+      h.remaining = 0;
       say(s, 'Hatch rushed.', 'good');
+      break;
+    }
+
+    case 'HATCH_EGG': {
+      const h = s.hatches.find((x) => x.id === action.hatchId);
+      if (!h) break;
+      if (h.remaining > 0) {
+        say(s, 'This egg is still incubating.', 'bad');
+        break;
+      }
+      // hatchEgg leaves the completed record alone when storage is full, so a
+      // player can make room and claim it later without losing the result.
+      const mon = hatchEgg(s, h.tier, h.shiny, h.parents, h.event, h.inheritance);
+      if (!mon) break;
+      s.hatches = s.hatches.filter((x) => x.id !== h.id);
       break;
     }
 
@@ -562,18 +583,6 @@ export function reduce(state: GameState, action: Action): GameState {
         if (m.habitatId && uids.includes(m.uid)) m.habitatId = null;
       }
       syncBattleTeam(s);
-      break;
-    }
-
-    case 'SET_BIOME': {
-      const biome = BIOME_BY_ID[action.biomeId];
-      if (!biome) break;
-      s.battle.biomeId = biome.id;
-      s.battle.tier = biome.tier;
-      s.battle.progress = 0;
-      s.battle.enemy = null;
-      s.battle.enemySpec = null;
-      say(s, `Travelled to ${biome.name} (${tierOf(biome).name}).`);
       break;
     }
 
@@ -824,6 +833,27 @@ export function reduce(state: GameState, action: Action): GameState {
       break;
     }
 
+    case 'CLAIM_ACHIEVEMENT': {
+      const achievement = ACHIEVEMENTS.find((a) => a.id === action.achievementId);
+      if (!achievement || s.achievements.includes(achievement.id)) break;
+      if (!achievement.check(s)) {
+        say(s, `${achievement.name} is not complete yet.`, 'bad');
+        break;
+      }
+      s.achievements.push(achievement.id);
+      const coins = achievement.coins ?? 0;
+      const diamonds = achievement.diamonds ?? 0;
+      if (coins) {
+        s.coins += coins;
+        s.stats.coinsEarned += coins;
+      }
+      if (diamonds) s.diamonds += diamonds;
+      const reward = [coins ? `⛁${coins.toLocaleString()}` : '', diamonds ? `💎${diamonds}` : '']
+        .filter(Boolean).join(' + ');
+      say(s, `Achievement claimed: ${achievement.name} (+${reward})`, 'good');
+      break;
+    }
+
     case 'CLAIM_EVENT': {
       const event = currentEvent();
       const reward = event.rewards[action.rewardIndex];
@@ -865,9 +895,12 @@ function autoAssignAll(s: GameState): void {
     const used = s.mons.filter((m) => m.habitatId === h.id).length;
     slots.set(h.id, Math.max(0, habitatSlots(h) - used));
   }
+  const output = (m: GameState['mons'][number]) => m.habitatId
+    ? monOutputWithHabitat(s, m)
+    : monBaseOutput(m);
   const candidates = s.mons
     .filter((m) => !m.habitatId && !s.battle.team.includes(m.uid))
-    .sort((a, b) => monOutputWithHabitat(s, b) - monOutputWithHabitat(s, a));
+    .sort((a, b) => output(b) - output(a));
   for (const mon of candidates) {
     for (const h of s.habitats) {
       const def = HABITAT_BY_ID[h.defId];

@@ -62,7 +62,8 @@ for (const [species, type] of [['bulbasaur', 'Grass'], ['charmander', 'Fire'], [
   check(`${species}: starter is housed`, mon?.habitatId === s.habitats[0]?.id);
   check(`${species}: no free extra monsters/eggs`, s.eggs.length === 0 && s.hatches.length === 0);
   check(`${species}: one habitat only`, s.habitats.length === 1);
-  check(`${species}: no numbered egg hatch level`, g.EGG_HATCH_LEVEL === 1);
+  check(`${species}: starter begins at level 5`, mon?.level === 5, `level ${mon?.level}`);
+  check(`${species}: ordinary eggs still hatch at level 1`, g.EGG_HATCH_LEVEL === 1);
 }
 
 // ------------------------------------------------------------------ eggs ----
@@ -78,9 +79,13 @@ console.log('\negg rules');
   const hatch = s.hatches[0];
   reduce(s, { type: 'INSTANT_HATCH', hatchId: hatch.id });
   reduce(s, { type: 'TICK', dt: 1 });
+  check('timer completion leaves the egg in its incubator', s.hatches.length === 1 && s.hatches[0].remaining === 0);
+  check('completion does not auto-hatch', s.mons.length === before);
+  reduce(s, { type: 'HATCH_EGG', hatchId: hatch.id });
   const born = s.mons[s.mons.length - 1];
   check('hatched monsters are level 1', born.level === 1, `level ${born.level}`);
   check('hatching added exactly one monster', s.mons.length === before + 1);
+  check('manual hatch clears the completed incubator slot', s.hatches.length === 0);
   const epicTier = g.EGG_TIERS.find((t) => t.id === 'epic');
   const mythic = g.EGG_TIERS.find((t) => t.id === 'legendary');
   check('radiant egg costs diamonds only', epicTier.currency === 'diamonds' && epicTier.rarity === 'epic');
@@ -412,6 +417,8 @@ console.log('\nbiome tiers');
     const ordinaryPools = g.BIOMES.filter((b) => !b.special).map((b) => g.biomePool(b));
     return ordinaryPools.every((pool) => pool.length === ordinaryPools[0].length && pool.some(([id]) => g.DEX[id].rarity === 'legendary'));
   })());
+  check('ordinary routes share one tier', new Set(g.BIOMES.filter((b) => !b.special).map((b) => b.tier)).size === 1);
+  check('only special routes use the distinct tier', g.BIOMES.filter((b) => b.special).every((b) => b.tier !== ordinary.tier));
   check('special routes weight rarer monsters more heavily', legendaryWeight(special) > legendaryWeight(ordinary));
   check('route types are weighted but not exclusive', (() => {
     const pool = g.biomePool(ordinary);
@@ -424,7 +431,7 @@ console.log('\nbiome tiers');
   check('route tier rolls are available for ordinary routes', tiers.size > 0, [...tiers].join());
   tiers = new Set();
   for (let i = 0; i < 200; i++) tiers.add(g.rollBiomeTier(500, 1));
-  check('cleared encounters open the rarer tiers', tiers.has(4) && tiers.size > 1, [...tiers].join());
+  check('cleared encounters open the special tier', tiers.has(2) && tiers.size > 1, [...tiers].join());
   check('the same tier still offers different areas', (() => {
     const seen = new Set();
     for (let i = 0; i < 60; i++) seen.add(g.randomBiomeOfTier(1).id);
@@ -442,6 +449,16 @@ console.log('\nachievement rewards');
   const diamondRewards = g.ACHIEVEMENTS.filter((a) => a.diamonds > 0).length;
   check('most achievements pay coins', coinRewards > diamondRewards, `${coinRewards} coins / ${diamondRewards} diamonds`);
   check('achievement diamond rewards stay small', g.ACHIEVEMENTS.filter((a) => a.diamonds > 0).every((a) => a.diamonds <= 30));
+  const s = fresh('charmander');
+  const before = s.coins;
+  check('completed achievements remain unclaimed', s.achievements.length === 0 && g.ACHIEVEMENTS[0].check(s));
+  reduce(s, { type: 'CLAIM_ACHIEVEMENT', achievementId: 'first-mon' });
+  check('claiming pays the reward once', s.achievements.includes('first-mon') && s.coins === before + g.ACHIEVEMENTS[0].coins);
+  const claimedCoins = s.coins;
+  reduce(s, { type: 'CLAIM_ACHIEVEMENT', achievementId: 'first-mon' });
+  check('achievement claims are idempotent', s.coins === claimedCoins && s.achievements.filter((id) => id === 'first-mon').length === 1);
+  reduce(s, { type: 'CLAIM_ACHIEVEMENT', achievementId: 'ten-mon' });
+  check('incomplete achievements cannot be claimed', !s.achievements.includes('ten-mon'));
 }
 
 // ------------------------------------------------------- diamonds & tickets --
