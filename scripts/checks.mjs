@@ -1522,7 +1522,7 @@ console.log('\nthe map on a canvas');
   })());
   check('and otherwise none', !f0.ctx.calls.some((c) => c.fn === 'fillText'));
   check('small monsters are drawn smaller than big ones', g.followerSize(0.3) < g.followerSize(1.7) && g.followerSize(1.7) <= g.followerSize(8.8));
-  check('but never tiny and never huge', g.followerSize(0.1) >= 14 && g.followerSize(50) <= 30);
+  check('but never tiny and never huge', g.followerSize(0.1) >= 11 && g.followerSize(50) <= 21, `${g.followerSize(0.1)}..${g.followerSize(50)}`);
 }
 
 // ------------------------------------------------------ random play ---------

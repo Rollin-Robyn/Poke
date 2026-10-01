@@ -111,9 +111,13 @@ export function artFor(url: string): Art | null {
   return null;
 }
 
-/** How big a follower is drawn on the map, in map pixels: small monsters are small. */
+/**
+ * How big a follower is drawn on the map, in map pixels: small monsters are
+ * small. The range stays around one tile high so a battle sprite reads as a
+ * creature standing on the route rather than a portrait pasted onto it.
+ */
 export function followerSize(heightM: number): number {
-  return 17 + 12 * Math.min(1, heightM / 2.5);
+  return 12 + 8 * Math.min(1, heightM / 2.5);
 }
 
 const ROW: Record<Dir, number> = { up: 0, down: 1, left: 2, right: 3 };
@@ -177,10 +181,12 @@ export function drawFrame(ctx: CanvasRenderingContext2D, assets: Assets, w: Walk
     const dw = art.box.w * k;
     const dh = art.box.h * k;
     // a small hop in time with the step
-    const hop = f.from || w.to ? Math.abs(Math.sin(w.t * Math.PI)) * 1.6 : 0;
+    const hop = f.from || w.to ? Math.abs(Math.sin(w.t * Math.PI)) * 1.4 : 0;
+    // feet on the tile's lower edge, exactly where the player's are, so the
+    // pair look like they stand on the same ground
     const footX = Math.round(fpx) + TILE_PX / 2 - camX;
-    const footY = Math.round(fpy) + TILE_PX - 1 - camY;
-    shadow(footX, footY, Math.max(4, dw * 0.38));
+    const footY = Math.round(fpy) + TILE_PX - camY;
+    shadow(footX, footY - 1, Math.max(3, dw * 0.34));
     const dx = (footX - dw / 2) * S;
     const dy = (footY - dh - hop) * S;
     ctx.imageSmoothingEnabled = true;
