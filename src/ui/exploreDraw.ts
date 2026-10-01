@@ -8,9 +8,11 @@ import { entry, spriteUrl } from '../game/exports';
  * from the React screen so it can be exercised with a fake canvas context.
  */
 
-// The camera shows 15 x 10 tiles, the same window as a Game Boy Advance.
-export const VIEW_W = 15;
-export const VIEW_H = 10;
+// The camera shows 20 x 13 tiles: a wider window than a Game Boy Advance so
+// the route reads as a place, not a keyhole. `zoom` only scales map pixels to
+// screen pixels, so a smaller zoom shows the same tiles smaller — further away.
+export const VIEW_W = 20;
+export const VIEW_H = 13;
 export const PLAYER_CELL = 32;
 
 // ------------------------------------------------------------------- assets --

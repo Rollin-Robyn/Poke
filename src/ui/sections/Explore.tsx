@@ -1,14 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame } from '../store';
 import { Bar, ItemSprite, Panel, RarityTag, Sprite, TypeTag } from '../components';
 import {
-  TEST_ROUTE, TILE_PX, advanceWalker, createWalker, type Dir, type Walker,
+  TEST_ROUTE, TILE_PX, advanceWalker, buildRandomRoute, createWalker, type Dir, type ExploreMap, type Walker,
 } from '../../game/explore';
-import { VIEW_H, VIEW_W, drawFrame, loadAssets, type Assets } from '../exploreDraw';
+import { VIEW_H, VIEW_W, drawFrame, loadAssets, paintMap, type Assets } from '../exploreDraw';
 import type { Action } from '../../game/actions';
 import { MAX_TEAM } from '../../game/state';
 import {
-  BALLS, BIOME_BY_ID, biomeLevelRange, entry, fmt, movesForMon, statsAt, typeMultiplier,
+  BALLS, BIOMES, BIOME_BY_ID, biomeLevelRange, entry, fmt, movesForMon, statsAt, typeMultiplier,
 } from './shared';
 
 const ZOOMS = [2, 3, 4];
@@ -22,6 +22,7 @@ const KEY_DIR: Record<string, Dir> = {
 interface Live {
   dispatch: (a: Action) => void;
   zoom: number;
+  route: ExploreMap;
   follower: { species: string; shiny: boolean; form: string | null | undefined } | null;
   canEncounter: boolean;
   fighting: boolean;
@@ -31,10 +32,17 @@ interface Live {
 // The walker lives outside React so leaving the tab and coming back finds the
 // player where they stopped. It is not saved: a reload starts at the road.
 let walker: Walker | null = null;
-function getWalker(): Walker {
-  if (!walker) walker = createWalker(TEST_ROUTE);
+let walkerFor: ExploreMap | null = null;
+function getWalker(route: ExploreMap): Walker {
+  if (!walker || walkerFor !== route) {
+    walker = createWalker(route);
+    walkerFor = route;
+  }
   return walker;
 }
+
+/** The biomes a generated route may use: the ordinary route tables. */
+const ROUTE_BIOMES = BIOMES.filter((b) => (b as { tier?: number }).tier !== undefined);
 
 // -------------------------------------------------------------------- screen --
 export function Explore({ go }: { go?: (tab: string) => void }) {
@@ -44,11 +52,13 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
   const input = useRef<{ held: Dir[]; run: boolean }>({ held: [], run: false });
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [zoom, setZoom] = useState(3);
+  const [zoom, setZoom] = useState(2);
   const [runToggle, setRunToggle] = useState(false);
+  const [route, setRoute] = useState<ExploreMap>(TEST_ROUTE);
+  const [seed, setSeed] = useState<number | null>(null);
 
   const b = state.battle;
-  const zone = TEST_ROUTE;
+  const zone = route;
   const team = b.team.map((u) => state.mons.find((m) => m.uid === u)).filter((m): m is NonNullable<typeof m> => !!m);
   const leader = team[0];
   const lead =
@@ -59,10 +69,11 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
   const [lo, hi] = biomeLevelRange(biome, b.biomesPassed);
 
   // everything the animation loop needs from this render, without restarting it
-  const live = useRef<Live>({ dispatch, zoom, follower: null, canEncounter: false, fighting: false });
+  const live = useRef<Live>({ dispatch, zoom, route, follower: null, canEncounter: false, fighting: false });
   live.current = {
     dispatch,
     zoom,
+    route,
     follower: leader ? { species: leader.species, shiny: leader.shiny, form: leader.form } : null,
     canEncounter: !!lead && !fighting,
     fighting,
@@ -70,19 +81,33 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
   const runRef = useRef(runToggle);
   runRef.current = runToggle;
 
+  // the sprites load once; the painted map is repainted whenever the route changes
+  const [base, setBase] = useState<Assets | null>(null);
+  const [view, setView] = useState<Assets | null>(null);
+  const viewRef = useRef<Assets | null>(null);
+  viewRef.current = view;
+
   useEffect(() => {
     let alive = true;
     loadAssets()
       .then((a) => {
         if (!alive) return;
         assetsRef.current = a;
-        setReady(true);
+        setBase(a);
       })
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (base) setView({ ...base, map: paintMap(route, base.tileset) });
+  }, [base, route]);
+
+  useEffect(() => {
+    setReady(!!view);
+  }, [view]);
 
   // keyboard: arrows or WASD to walk, Shift to run
   useEffect(() => {
@@ -132,16 +157,17 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
   useEffect(() => {
     if (!ready) return undefined;
     const canvas = canvasRef.current;
-    const assets = assetsRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!canvas || !assets || !ctx) return undefined;
+    if (!canvas || !ctx) return undefined;
     let raf = 0;
     let last = performance.now();
     const frame = (now: number) => {
-      const w = getWalker();
+      const cfg = live.current;
+      const assets = viewRef.current;
+      if (!assets) return;
+      const w = getWalker(cfg.route);
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
-      const cfg = live.current;
       const size = [VIEW_W * TILE_PX * cfg.zoom, VIEW_H * TILE_PX * cfg.zoom];
       if (canvas.width !== size[0] || canvas.height !== size[1]) {
         canvas.width = size[0];
@@ -149,13 +175,13 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
       }
       const modalOpen = !!document.querySelector('.modal-backdrop');
       const held = input.current.held;
-      const res = advanceWalker(TEST_ROUTE, w, dt, {
+      const res = advanceWalker(cfg.route, w, dt, {
         dir: held.length ? held[held.length - 1] : null,
         run: input.current.run || runRef.current,
         frozen: cfg.fighting || modalOpen,
         canEncounter: cfg.canEncounter,
       });
-      if (res.encounter) cfg.dispatch({ type: 'EXPLORE_ENCOUNTER', biomeId: TEST_ROUTE.biomeId });
+      if (res.encounter) cfg.dispatch({ type: 'EXPLORE_ENCOUNTER', biomeId: cfg.route.biomeId });
       drawFrame(ctx, assets, w, { zoom: cfg.zoom, follower: cfg.follower, now });
       raf = requestAnimationFrame(frame);
     };
@@ -163,7 +189,14 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
     return () => cancelAnimationFrame(raf);
   }, [ready]);
 
-  const w = getWalker();
+  const w = getWalker(route);
+
+  const newRoute = () => {
+    const s = (Math.random() * 0x7fffffff) | 0;
+    const biome = ROUTE_BIOMES[Math.floor(Math.random() * ROUTE_BIOMES.length)];
+    setSeed(s);
+    setRoute(buildRandomRoute(s, biome.id));
+  };
   const hold = (dir: Dir) => ({
     onPointerDown: (e: React.PointerEvent) => {
       e.preventDefault();
@@ -199,6 +232,7 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
           <span className="tag" style={{ background: 'rgba(111,191,115,.2)', borderColor: 'rgba(111,191,115,.55)' }}>
             🧭 {zone.name}
           </span>
+          {seed !== null && <span className="tag" title="The seed this route was grown from">#{seed.toString(36)}</span>}
           <span className="small muted">
             Tall grass uses the {biome.name} table · Lv.{lo}–{hi} wild · {fmt(w.steps)} steps · {fmt(w.encounters)} encounters
           </span>
@@ -251,11 +285,19 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
               <button
                 className="btn xs ghost"
                 onClick={() => {
-                  walker = createWalker(TEST_ROUTE);
+                  walker = createWalker(route);
+                  walkerFor = route;
                 }}
                 title="Walk back to the start of the road"
               >
                 Back to start
+              </button>
+              <button
+                className="btn xs"
+                onClick={newRoute}
+                title="Grow a brand new route from a fresh seed"
+              >
+                🎲 New route
               </button>
             </div>
           </div>
@@ -324,15 +366,16 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
         <Panel title="Route notes">
           <div className="stack small" style={{ gap: 6 }}>
             <div className="muted">
-              This is a test map built from the FireRed/LeafGreen outdoor tileset. The road, the pond and the trees are
-              solid or open ground; the dark green plants are tall grass.
+              Every route is grown from a seed out of the FireRed/LeafGreen outdoor tileset: a sand road wanders through,
+              tall grass patches gather beside it, ponds and conifers fill the gaps. <b>🎲 New route</b> rolls another one;
+              the same seed always grows the same place.
             </div>
             <div className="muted">
               A wild monster from the grass is the same fight as on the Battle screen: the same moves, balls, rewards and
               level-ups. Fleeing is only possible here, not on a route.
             </div>
             <div className="tiny dim">
-              Tall grass tiles: {fmt(TEST_ROUTE.grass.filter(Boolean).length)} · evolved forms and legendaries follow the
+              Tall grass tiles: {fmt(zone.grass.filter(Boolean).length)} · evolved forms and legendaries follow the
               same spawn rules as the Battle routes.
             </div>
           </div>

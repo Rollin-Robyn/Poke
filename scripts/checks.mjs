@@ -1132,6 +1132,68 @@ console.log('\nexploration route');
   check('the map is built the same way every time', JSON.stringify(g.buildRouteMap().ground) === JSON.stringify(map.ground));
 }
 
+console.log('\ngenerated routes');
+{
+  const readPng = (path) => {
+    const file = readFileSync(join(root, path));
+    return { width: file.readUInt32BE(16), height: file.readUInt32BE(20) };
+  };
+  const sheet = readPng('public/explore/tileset.png');
+  const cols = Math.floor((sheet.width - g.SHEET_ORIGIN) / g.SHEET_PITCH);
+  const rows = Math.floor((sheet.height - g.SHEET_ORIGIN) / g.SHEET_PITCH);
+  const sandValues = Object.values(g.TILES.sand).map((t) => t.join(','));
+  const seeds = [1, 7, 42, 1337, 9001, 123456789];
+  const maps = seeds.map((s) => g.buildRandomRoute(s, 'meadow'));
+
+  seeds.forEach((seed, k) => {
+    const map = maps[k];
+    const at = (x, y) => y * map.width + x;
+    const tag = `seed ${seed}`;
+    check(`${tag}: a small walled map`, map.width >= g.VIEW_W + 4 && map.height >= g.VIEW_H + 4
+      && map.width * map.height <= 2000, `${map.width}x${map.height}`);
+    check(`${tag}: the whole edge is solid`, (() => {
+      for (let x = 0; x < map.width; x++) if (!g.isSolid(map, x, 0) || !g.isSolid(map, x, map.height - 1)) return false;
+      for (let y = 0; y < map.height; y++) if (!g.isSolid(map, 0, y) || !g.isSolid(map, map.width - 1, y)) return false;
+      return true;
+    })());
+    check(`${tag}: the player starts on open ground with room behind`, !g.isSolid(map, map.spawn.x, map.spawn.y)
+      && !g.isSolid(map, map.followerStart.x, map.followerStart.y));
+    check(`${tag}: the spawn sits on the road`, sandValues.includes(map.ground[at(map.spawn.x, map.spawn.y)].join(',')));
+    const grassCells = map.grass.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+    check(`${tag}: a good deal of tall grass`, grassCells.length >= 60, String(grassCells.length));
+    const reach = g.reachableCells(map, map.spawn);
+    check(`${tag}: all of the tall grass can be walked to`, grassCells.every((i) => reach.has(i)),
+      `${grassCells.filter((i) => !reach.has(i)).length} unreachable`);
+    let open = 0;
+    for (let i = 0; i < map.solid.length; i++) if (!map.solid[i]) open += 1;
+    check(`${tag}: most of the open ground can be walked to`, reach.size / open > 0.9, `${reach.size}/${open}`);
+    const refs = [...map.ground, ...map.over.filter(Boolean)];
+    check(`${tag}: every tile it uses is inside the sheet`, refs.every(([c, r]) => c >= 0 && r >= 0 && c < cols && r < rows));
+    check(`${tag}: no one-tile roads`, (() => {
+      const isSand = (x, y) => x >= 0 && y >= 0 && x < map.width && y < map.height
+        && sandValues.includes(map.ground[at(x, y)].join(','));
+      for (let y = 0; y < map.height; y++) {
+        for (let x = 0; x < map.width; x++) {
+          if (!isSand(x, y)) continue;
+          let n = 0;
+          for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) if (isSand(x + dx, y + dy)) n += 1;
+          if (n < 2) return false;
+        }
+      }
+      return true;
+    })());
+    check(`${tag}: the same seed grows the same route`, JSON.stringify(g.buildRandomRoute(seed, 'meadow').ground) === JSON.stringify(map.ground));
+  });
+
+  check('different seeds grow different routes', new Set(maps.map((m) => JSON.stringify(m.ground))).size === maps.length);
+  check('a route is named after its seed, and the name reads like a place', g.routeName(42) === g.routeName(42)
+    && g.routeName(42) !== g.routeName(43) && /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(g.routeName(42)), g.routeName(42));
+  check('an unruly seed still falls back to a walkable route', (() => {
+    const m = g.buildRandomRoute(0, 'meadow');
+    return g.reachableCells(m, m.spawn).size > 100;
+  })());
+}
+
 console.log('\nwalking');
 {
   const map = g.TEST_ROUTE;
@@ -1403,14 +1465,14 @@ console.log('\nthe map on a canvas');
   const start = g.createWalker(g.TEST_ROUTE);
   const f0 = frame(start);
   check('a frame draws the map, then the player', !!f0.map && !!f0.player);
-  check('the map is cropped to a 15 x 10 tile window', f0.map.args[3] === 240 && f0.map.args[4] === 160 && f0.map.args[7] === view.w && f0.map.args[8] === view.h);
+  check(`the map is cropped to a ${g.VIEW_W} x ${g.VIEW_H} tile window`, f0.map.args[3] === g.VIEW_W * g.TILE_PX && f0.map.args[4] === g.VIEW_H * g.TILE_PX && f0.map.args[7] === view.w && f0.map.args[8] === view.h);
   check('the player is drawn from the sheet row for the way they face', f0.player.args[2] === 0 && f0.player.args[3] === 32);
   check('the first team member is drawn too', !!f0.pet);
   check('and it stands behind the player when they face up (lower on the screen)', f0.petFeetY > f0.playerFeetY, `${f0.petFeetY} vs ${f0.playerFeetY}`);
   check('one tile behind: 16 map pixels', Math.abs(f0.petFeetY - f0.playerFeetY - 16 * S) < 3 * S, `${f0.petFeetY - f0.playerFeetY}`);
-  check('at the top of the screen the camera stops at the map edge', start.y * 16 > 240 && (() => {
+  check('at the top of the screen the camera stops at the map edge', start.y * 16 > g.VIEW_H * g.TILE_PX && (() => {
     const ys = f0.map.args[2];
-    return ys === g.TEST_ROUTE.height * 16 - 160;
+    return ys === g.TEST_ROUTE.height * 16 - g.VIEW_H * g.TILE_PX;
   })());
   check('without a team there is no follower', frame(start, null).pet === undefined);
 
