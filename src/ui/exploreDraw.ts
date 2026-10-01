@@ -52,17 +52,22 @@ export function paintMap(map: ExploreMap, tileset: HTMLImageElement): HTMLCanvas
   return canvas;
 }
 
-let assetsPromise: Promise<Assets> | null = null;
-export function loadAssets(): Promise<Assets> {
-  if (!assetsPromise) {
-    assetsPromise = Promise.all([loadImage('explore/tileset.png'), loadImage('explore/player.png')])
+/** who the player walks as on the exploration screen */
+export type HeroId = 'nate' | 'rosa';
+
+const assetsCache = new Map<HeroId, Promise<Assets>>();
+export function loadAssets(hero: HeroId = 'nate'): Promise<Assets> {
+  let promise = assetsCache.get(hero);
+  if (!promise) {
+    promise = Promise.all([loadImage('explore/tileset.png'), loadImage(`explore/player-${hero}.png`)])
       .then(([tileset, player]) => ({ tileset, player, map: paintMap(TEST_ROUTE, tileset) }))
       .catch((err) => {
-        assetsPromise = null;
+        assetsCache.delete(hero);
         throw err;
       });
+    assetsCache.set(hero, promise);
   }
-  return assetsPromise;
+  return promise;
 }
 
 // Gen 5 sprites are 96 x 96 with a lot of empty space around the monster, so

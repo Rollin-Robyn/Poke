@@ -101,6 +101,8 @@ export const POND_SIZE = 3;
 // ---------------------------------------------------------------------- map --
 export interface ExploreMap {
   id: string;
+  /** what the route is made of: grass, forest, rock, cave stone or sand */
+  look: Look;
   name: string;
   /** whose spawn table the tall grass uses (see BIOMES) */
   biomeId: string;
@@ -224,7 +226,7 @@ function materialise(width: number, height: number, cell: (x: number, y: number)
 
   const sandAt = (x: number, y: number) => {
     const c = cell(x, y);
-    return c === 's' || c === '@';
+    return c === 's' || c === '@' || c === 'd';
   };
   const waterAt = (x: number, y: number) => cell(x, y) === 'w';
 
@@ -238,6 +240,11 @@ function materialise(width: number, height: number, cell: (x: number, y: number)
       if (c === 's' || c === '@') {
         ground[i] = sandTile((dx, dy) => sandAt(x + dx, y + dy));
         if (c === '@') spawn = { x, y, facing: 'up' };
+      } else if (c === 'A') {
+        ground[i] = TILES.stone;
+        spawn = { x, y, facing: 'up' };
+      } else if (c === 'd') {
+        ground[i] = sandTile((dx, dy) => sandAt(x + dx, y + dy));
       } else if (c === 'g') {
         ground[i] = TILES.tallGrass;
         grass[i] = true;
@@ -326,6 +333,7 @@ export function buildRouteMap(): ExploreMap {
 
   return {
     id: 'test-route',
+    look: 'meadow' as Look,
     name: 'Test Route 1',
     biomeId: 'meadow',
     width,
@@ -400,13 +408,19 @@ function routeIsSound(map: ExploreMap): boolean {
       if (reach.has(i)) grassReach += 1;
     }
   }
-  const sandValues = new Set(Object.values(TILES.sand).map((t) => t.join(',')));
-  let sand = 0;
-  for (let i = 0; i < map.ground.length; i++) if (sandValues.has(map.ground[i].join(','))) sand += 1;
-  if (sand < 40 || grassCells < 60) return false;
+  const pathValues = new Set(Object.values(TILES.sand).map((t) => t.join(',')));
+  pathValues.add(TILES.stone.join(','));
+  pathValues.add(TILES.planks.join(','));
+  let path = 0;
+  for (let i = 0; i < map.ground.length; i++) if (pathValues.has(map.ground[i].join(','))) path += 1;
+  const grassFloor = map.look === 'cave' ? 30 : 60;
+  if (path < 40 || grassCells < grassFloor) return false;
   if (grassReach !== grassCells) return false;
   return reach.size / open > 0.9;
 }
+
+/** what a route is made of, chosen by its biome */
+type Look = 'meadow' | 'forest' | 'rocky' | 'cave' | 'shore';
 
 function tryRoute(seed: number, biomeId: string): ExploreMap | null {
   const rnd = mulberry32(seed);
@@ -422,7 +436,16 @@ function tryRoute(seed: number, biomeId: string): ExploreMap | null {
   const g: string[][] = Array.from({ length: ih }, () => new Array<string>(iw).fill('.'));
   const at = (x: number, y: number) => y * width + x;
   const inI = (x: number, y: number) => x >= 0 && y >= 0 && x < iw && y < ih;
-  const rocky = rnd() < 0.35;
+  // the biome decides what the route is made of, so routes stop all being
+  // the same forest: grass and conifers, scree and cliffs, cave stone, or sand
+  const LOOKS: Record<string, Look> = {
+    meadow: 'meadow', plateau: 'meadow', spire: 'meadow',
+    forest: 'forest', 'mystery-grove': 'forest',
+    canyon: 'rocky', caldera: 'rocky', summit: 'rocky', 'ancient-sanctum': 'rocky',
+    cave: 'cave', void: 'cave', abyss: 'cave', ruins: 'cave',
+    shore: 'shore', 'mirage-isle': 'shore',
+  };
+  const look: Look = LOOKS[biomeId] ?? 'meadow';
 
   // --- the road: a two-tile ribbon from one end of the route to the other ---
   const road = new Set<string>();
@@ -523,8 +546,12 @@ function tryRoute(seed: number, biomeId: string): ExploreMap | null {
   };
 
   // --- tall grass: soft blobs of it, a little way off the road -------------
-  const patches = 8 + pick(6);
-  for (let p = 0; p < patches; p++) {
+  // grow blobs until the route holds its share of grass, however the road and
+  // the river cut it up; cave routes get away with moss rather than meadows
+  const share = look === 'cave' ? 0.07 : look === 'shore' ? 0.1 : look === 'rocky' ? 0.11 : 0.13;
+  const grassTarget = Math.max(look === 'cave' ? 34 : 64, Math.floor(iw * ih * share));
+  let grassNow = 0;
+  for (let p = 0; p < 60 && grassNow < grassTarget; p++) {
     const w = 4 + pick(4);
     const h = 3 + pick(3);
     const x0 = 1 + pick(Math.max(1, iw - w - 1));
@@ -535,14 +562,14 @@ function tryRoute(seed: number, biomeId: string): ExploreMap | null {
         // round the blob off a little at the corners
         if ((dx === 0 || dx === w - 1) && (dy === 0 || dy === h - 1) && rnd() < 0.5) continue;
         g[y0 + dy][x0 + dx] = 'g';
+        grassNow += 1;
       }
     }
   }
 
   // --- rocky ground and cliffs, or ponds and conifers ----------------------
-  if (rocky) {
-    const scree = 5 + pick(5);
-    for (let p = 0; p < scree; p++) {
+  const scree = (n: number) => {
+    for (let p = 0; p < n; p++) {
       const w = 3 + pick(5);
       const h = 2 + pick(3);
       const x0 = 1 + pick(Math.max(1, iw - w - 1));
@@ -550,26 +577,52 @@ function tryRoute(seed: number, biomeId: string): ExploreMap | null {
       if (!openRect(x0, y0, w, h)) continue;
       for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) g[y0 + dy][x0 + dx] = 'm';
     }
-    // a rocky lip just inside the tree wall, so the route sits in a hollow
-    for (let cx = 0; cx < iw; cx++) { g[0][cx] = g[0][cx] === '.' ? 'R' : g[0][cx]; g[ih - 1][cx] = g[ih - 1][cx] === '.' ? 'R' : g[ih - 1][cx]; }
-    for (let cy = 0; cy < ih; cy++) { g[cy][0] = g[cy][0] === '.' ? 'R' : g[cy][0]; g[cy][iw - 1] = g[cy][iw - 1] === '.' ? 'R' : g[cy][iw - 1]; }
-  } else {
-    const ponds = pick(3);
-    for (let p = 0; p < ponds; p++) {
+  };
+  const ponds = (n: number) => {
+    // keep trying until the ponds are actually down: a free spot is rarer
+    // than it looks once the road, the river and the grass have taken theirs
+    for (let p = 0, placed = 0; p < 40 && placed < n; p++) {
       const x0 = 1 + pick(Math.max(1, iw - POND_SIZE - 2));
       const y0 = 1 + pick(Math.max(1, ih - POND_SIZE - 2));
       if (!free(x0, y0, POND_SIZE, POND_SIZE)) continue;
-      g[y0][x0] = 'P';
-      for (let dy = 0; dy < POND_SIZE; dy++) for (let dx = 0; dx < POND_SIZE; dx++) g[y0 + dy][x0 + dx] = 'p';
+      placed += 1;
+      for (let dy = 0; dy < POND_SIZE; dy++) {
+        for (let dx = 0; dx < POND_SIZE; dx++) {
+          // the corner keeps the marker char; the rest is fill
+          g[y0 + dy][x0 + dx] = dx === 0 && dy === 0 ? 'P' : 'p';
+        }
+      }
     }
-    const trees = 3 + pick(4);
-    for (let t = 0; t < trees; t++) {
+  };
+  const trees = (n: number) => {
+    for (let t = 0, placed = 0; t < 60 && placed < n; t++) {
       const x0 = 1 + pick(Math.max(1, iw - TREE_W - 2));
       const y0 = 1 + pick(Math.max(1, ih - TREE_H - 2));
       if (!free(x0, y0, TREE_W, TREE_H)) continue;
-      g[y0][x0] = 'T';
-      for (let dy = 0; dy < TREE_H; dy++) for (let dx = 0; dx < TREE_W; dx++) g[y0 + dy][x0 + dx] = 't';
+      placed += 1;
+      for (let dy = 0; dy < TREE_H; dy++) {
+        for (let dx = 0; dx < TREE_W; dx++) {
+          g[y0 + dy][x0 + dx] = dx === 0 && dy === 0 ? 'T' : 't';
+        }
+      }
     }
+  };
+  if (look === 'rocky') {
+    scree(5 + pick(5));
+    // a rocky lip just inside the tree wall, so the route sits in a hollow
+    for (let cx = 0; cx < iw; cx++) { g[0][cx] = g[0][cx] === '.' ? 'R' : g[0][cx]; g[ih - 1][cx] = g[ih - 1][cx] === '.' ? 'R' : g[ih - 1][cx]; }
+    for (let cy = 0; cy < ih; cy++) { g[cy][0] = g[cy][0] === '.' ? 'R' : g[cy][0]; g[cy][iw - 1] = g[cy][iw - 1] === '.' ? 'R' : g[cy][iw - 1]; }
+  } else if (look === 'cave') {
+    scree(3 + pick(4));
+  } else if (look === 'shore') {
+    ponds(2 + pick(3));
+    trees(2 + pick(3));
+  } else if (look === 'forest') {
+    ponds(pick(2));
+    trees(6 + pick(5));
+  } else {
+    ponds(pick(3));
+    trees(3 + pick(4));
   }
   const scatter = (ch: string, n: number, clump: number) => {
     for (let k = 0; k < n; k++) {
@@ -596,9 +649,20 @@ function tryRoute(seed: number, biomeId: string): ExploreMap | null {
       }
     }
   };
-  scatter('f', 4 + pick(5), 1);
-  scatter('b', 2 + pick(3), 2);
-  scatter('r', 1 + pick(3), 1);
+  if (look === 'cave') {
+    scatter('r', 3 + pick(4), 2);
+  } else if (look === 'shore') {
+    scatter('f', 2 + pick(3), 1);
+    scatter('r', 2 + pick(3), 2);
+  } else if (look === 'forest') {
+    scatter('f', 2 + pick(3), 1);
+    scatter('b', 3 + pick(4), 2);
+    scatter('r', 1 + pick(2), 1);
+  } else {
+    scatter('f', 4 + pick(5), 1);
+    scatter('b', 2 + pick(3), 2);
+    scatter('r', 1 + pick(3), 1);
+  }
 
   // --- materialise, with the 'p'/'t' fill cells of stamps kept open-free ----
   const cell = (x: number, y: number): string => {
@@ -609,7 +673,15 @@ function tryRoute(seed: number, biomeId: string): ExploreMap | null {
     if (c === 'p' || c === 't') return '#';   // filled in by the stamp below
     return c;
   };
-  const art = materialise(width, height, cell);
+  const art = materialise(width, height, (x, y) => {
+    const c = cell(x, y);
+    if (look === 'shore') {
+      if (c === 's') return 'S';
+      if (c === '@') return 'A';
+    }
+    if (c === '.') return look === 'cave' ? 'S' : look === 'shore' ? 'd' : '.';
+    return c;
+  });
   const stampAt = (x0: number, y0: number, art2: TileRef[][]) => {
     for (let dy = 0; dy < art2.length; dy++) {
       for (let dx = 0; dx < art2[dy].length; dx++) {
@@ -626,11 +698,12 @@ function tryRoute(seed: number, biomeId: string): ExploreMap | null {
       if (g[iy][ix] === 'T') stampAt(ix + BORDER_X, iy + BORDER_Y, TILES.tree);
     }
   }
-  treeWall(width, height, (x, y) => stampAt(x, y, TILES.tree));
+  if (look !== 'cave') treeWall(width, height, (x, y) => stampAt(x, y, TILES.tree));
 
   const spawn = { x: art.spawn.x, y: art.spawn.y, facing: (wide ? 'right' : 'up') as Dir };
   const map: ExploreMap = {
     id: `route-${seed}`,
+    look,
     name: routeName(seed),
     biomeId,
     width,
@@ -642,6 +715,26 @@ function tryRoute(seed: number, biomeId: string): ExploreMap | null {
     spawn,
     followerStart: { x: spawn.x + BEHIND[spawn.facing][0], y: spawn.y + BEHIND[spawn.facing][1] },
   };
+
+  if (look === 'cave') {
+    // cave routes sit in raw rock: the border is cracked stone with a cliff
+    // face looking into the route, instead of a wall of conifers
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const ix = x - BORDER_X;
+        const iy = y - BORDER_Y;
+        if (ix >= 0 && iy >= 0 && ix < iw && iy < ih) continue;
+        const i = at(x, y);
+        map.ground[i] = TILES.mountain[cellHash(x, y) % TILES.mountain.length];
+        map.over[i] = null;
+        map.solid[i] = true;
+        map.grass[i] = false;
+        if (ix === -1 || iy === -1 || ix === iw || iy === ih) {
+          map.over[i] = TILES.cliff[cellHash(x, y) % TILES.cliff.length];
+        }
+      }
+    }
+  }
 
   // Ground the road can never reach is wasted ground. A little of it becomes a
   // copse of conifers with bushes in the gaps; a lot of it means the walk boxed

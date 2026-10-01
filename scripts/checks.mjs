@@ -1160,7 +1160,7 @@ console.log('\ngenerated routes');
       && !g.isSolid(map, map.followerStart.x, map.followerStart.y));
     check(`${tag}: the spawn sits on the road`, sandValues.includes(map.ground[at(map.spawn.x, map.spawn.y)].join(',')));
     const grassCells = map.grass.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
-    check(`${tag}: a good deal of tall grass`, grassCells.length >= 60, String(grassCells.length));
+    check(`${tag}: a good deal of tall grass`, grassCells.length >= (map.look === 'cave' ? 30 : 60), String(grassCells.length));
     const reach = g.reachableCells(map, map.spawn);
     check(`${tag}: all of the tall grass can be walked to`, grassCells.every((i) => reach.has(i)),
       `${grassCells.filter((i) => !reach.has(i)).length} unreachable`);
@@ -1170,8 +1170,10 @@ console.log('\ngenerated routes');
     const refs = [...map.ground, ...map.over.filter(Boolean)];
     check(`${tag}: every tile it uses is inside the sheet`, refs.every(([c, r]) => c >= 0 && r >= 0 && c < cols && r < rows));
     check(`${tag}: no one-tile roads`, (() => {
+      // the plank deck of a bridge carries the road, so it counts as road here
       const isSand = (x, y) => x >= 0 && y >= 0 && x < map.width && y < map.height
-        && sandValues.includes(map.ground[at(x, y)].join(','));
+        && (sandValues.includes(map.ground[at(x, y)].join(','))
+          || map.ground[at(x, y)].join(',') === g.TILES.planks.join(','));
       for (let y = 0; y < map.height; y++) {
         for (let x = 0; x < map.width; x++) {
           if (!isSand(x, y)) continue;
@@ -1191,6 +1193,47 @@ console.log('\ngenerated routes');
   check('an unruly seed still falls back to a walkable route', (() => {
     const m = g.buildRandomRoute(0, 'meadow');
     return g.reachableCells(m, m.spawn).size > 100;
+  })());
+}
+
+console.log('\nroute looks');
+{
+  const cases = [['cave', 'cave'], ['shore', 'shore'], ['canyon', 'rocky'], ['forest', 'forest'], ['meadow', 'meadow']];
+  for (const [biome, look] of cases) {
+    const m = g.buildRandomRoute(1234 + biome.length * 77, biome);
+    check(`${biome} routes are built like ${look}`, m.look === look, m.look);
+    check(`${biome}: the whole edge is solid`, (() => {
+      for (let x = 0; x < m.width; x++) if (!g.isSolid(m, x, 0) || !g.isSolid(m, x, m.height - 1)) return false;
+      for (let y = 0; y < m.height; y++) if (!g.isSolid(m, 0, y) || !g.isSolid(m, m.width - 1, y)) return false;
+      return true;
+    })());
+    check(`${biome}: the route can be walked`, g.reachableCells(m, m.spawn).size > 100);
+    const refs = [...m.ground, ...m.over.filter(Boolean)];
+    check(`${biome}: every tile it uses is inside the sheet`, refs.every(([c, r]) => c >= 0 && r >= 0 && c < 28 && r < 47));
+  }
+  const pond = new Set(g.TILES.pond.flat().map((t) => t.join(',')));
+  check('shore routes keep a pool of water', (() => {
+    for (const seed of [5, 9, 14]) {
+      const m = g.buildRandomRoute(seed, 'shore');
+      if (m.over.some((o) => o && pond.has(o.join(',')))) return true;
+    }
+    return false;
+  })());
+  const cave = g.buildRandomRoute(12, 'cave');
+  const cliff = new Set(g.TILES.cliff.map((t) => t.join(',')));
+  const tree = new Set(g.TILES.tree.flat().map((t) => t.join(',')));
+  check('cave routes are walled with rock, not conifers',
+    cave.over.some((o) => o && cliff.has(o.join(','))) && !cave.over.some((o) => o && tree.has(o.join(','))));
+  check('the hero sheets are cut like the walker wants', (() => {
+    const readPng = (path) => {
+      const file = readFileSync(join(root, path));
+      return { width: file.readUInt32BE(16), height: file.readUInt32BE(20) };
+    };
+    for (const hero of ['nate', 'rosa']) {
+      const png = readPng(`public/explore/player-${hero}.png`);
+      if (png.width !== 96 || png.height !== 128) return false;
+    }
+    return true;
   })());
 }
 

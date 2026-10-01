@@ -5,7 +5,7 @@ import {
   TEST_ROUTE, TILE_PX, advanceWalker, buildRandomRoute, createWalker, exploreDepth, exploreTier,
   type Dir, type ExploreMap, type Walker,
 } from '../../game/explore';
-import { VIEW_H, VIEW_W, drawFrame, loadAssets, paintMap, type Assets } from '../exploreDraw';
+import { VIEW_H, VIEW_W, drawFrame, loadAssets, paintMap, type Assets, type HeroId } from '../exploreDraw';
 import type { Action } from '../../game/actions';
 import { MAX_TEAM } from '../../game/state';
 import {
@@ -55,6 +55,8 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [zoom, setZoom] = useState(2);
+  // which B2W2 hero walks the routes; remembered between visits
+  const [hero, setHero] = useState<HeroId>(() => (localStorage.getItem('poke-explore-hero') === 'rosa' ? 'rosa' : 'nate'));
   const [runToggle, setRunToggle] = useState(false);
   const [route, setRoute] = useState<ExploreMap>(TEST_ROUTE);
   const [seed, setSeed] = useState<number | null>(null);
@@ -100,7 +102,7 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
 
   useEffect(() => {
     let alive = true;
-    loadAssets()
+    loadAssets(hero)
       .then((a) => {
         if (!alive) return;
         assetsRef.current = a;
@@ -110,7 +112,7 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [hero]);
 
   useEffect(() => {
     if (base) setView({ ...base, map: paintMap(route, base.tileset) });
@@ -296,9 +298,28 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
                 <input type="checkbox" checked={runToggle} onChange={(e) => setRunToggle(e.target.checked)} /> Run
               </label>
               <label className="row small" style={{ gap: 6 }}>
+                Hero
+                <select
+                  value={hero}
+                  onChange={(e) => {
+                    const next = e.target.value as HeroId;
+                    setHero(next);
+                    localStorage.setItem('poke-explore-hero', next);
+                  }}
+                >
+                  <option value="nate">Nate</option>
+                  <option value="rosa">Rosa</option>
+                </select>
+              </label>
+              <label className="row small" style={{ gap: 6 }}>
                 Zoom
                 <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
-                  {ZOOMS.map((z) => <option key={z} value={z}>{z}×</option>)}
+                  {ZOOMS.map((z) => (
+                    <option key={z} value={z}>
+                      {z}× · {Math.min(route.width, Math.max(9, Math.round((VIEW_W * 3) / z)))}×
+                      {Math.min(route.height, Math.max(6, Math.round((VIEW_H * 3) / z)))} tiles
+                    </option>
+                  ))}
                 </select>
               </label>
               <button
