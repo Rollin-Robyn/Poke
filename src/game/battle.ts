@@ -611,6 +611,7 @@ export function makeInitialBattle(): BattleState {
     progress: 0,
     cleared: 0,
     biomesPassed: 0,
+    exploreWins: 0,
     rotateAt: 10,
     timer: 0,
     rewards: { coins: 0, xp: 0, items: {} },

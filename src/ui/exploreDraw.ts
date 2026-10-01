@@ -127,6 +127,13 @@ const GRASS_COVER = 5;
 export interface DrawOptions {
   /** map pixels are drawn this many screen pixels wide */
   zoom: number;
+  /**
+   * The camera window, in tiles. Zooming out widens it instead of shrinking
+   * the picture, so pulling back actually shows more of the route.
+   */
+  view?: { w: number; h: number };
+  /** the map being walked; defaults to the test route */
+  map?: ExploreMap;
   /** the first team member, drawn one tile behind the player */
   follower: { species: string; shiny: boolean; form: string | null | undefined } | null;
   now: number;
@@ -139,9 +146,11 @@ export function drawFrame(ctx: CanvasRenderingContext2D, assets: Assets, w: Walk
   const S = opts.zoom;
   const now = opts.now;
   const artOf = opts.art ?? artFor;
-  const vw = VIEW_W * TILE_PX;
-  const vh = VIEW_H * TILE_PX;
-  const map = TEST_ROUTE;
+  const viewW = opts.view?.w ?? VIEW_W;
+  const viewH = opts.view?.h ?? VIEW_H;
+  const vw = viewW * TILE_PX;
+  const vh = viewH * TILE_PX;
+  const map = opts.map ?? TEST_ROUTE;
 
   // where the player is, in map pixels, part way through a step
   const px = (w.to ? w.x + (w.to.x - w.x) * w.t : w.x) * TILE_PX;

@@ -156,6 +156,12 @@ export interface BattleState {
   cleared: number;
   /** number of complete biomes passed in this run; controls wild levels */
   biomesPassed: number;
+  /**
+   * Fights won (or monsters caught) while exploring routes. Exploration owns
+   * its own ladder: every few wins the routes run deeper and their wild
+   * levels rise, without the expedition having to pass a single biome.
+   */
+  exploreWins: number;
   /** encounters until the trail moves on */
   rotateAt: number;
   /** seconds until the next wild encounter (or until the party has rested) */
