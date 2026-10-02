@@ -8,6 +8,7 @@ import {
   WILD_DAMAGE_SCALE, levelBonus, type MoveDef, type TurnSide,
 } from './battle';
 import { DEX, DEX_IDS, RARITIES, RARITY_HATCH_TIME, entry, statsAt, type Rarity } from './dex';
+import { exploreDepth } from './explore';
 import { NATURES } from './natures';
 import { chance, clamp, pick, pickWeighted, rnd, rndInt, uid } from './rng';
 import {
@@ -435,9 +436,13 @@ export function startEncounter(
   const b = s.battle;
   const via = opts.via ?? 'route';
   const biome = BIOME_BY_ID[opts.biomeId ?? b.biomeId] ?? BIOMES[0];
-  // Ordinary biomes all use the same base band. The only level scaling is the
-  // number of complete biomes this expedition has passed.
-  const [lo, hi] = biomeLevelRange(biome, b.biomesPassed);
+  // Ordinary biomes all use the same base band. Level scaling comes from the
+  // biomes this expedition has passed - and, for fights found while exploring,
+  // from how deep the player's exploration career has run, whichever is deeper.
+  const depth = via === 'explore'
+    ? Math.max(b.biomesPassed, exploreDepth(b.exploreWins))
+    : b.biomesPassed;
+  const [lo, hi] = biomeLevelRange(biome, depth);
   const spawn = spawnEnemy(s, biome, [lo, hi]);
   const mon = makeMon(spawn.species, spawn.level, { shiny: spawn.shiny });
   b.enemyId = mon.uid;
@@ -693,6 +698,25 @@ function handleFaint(s: GameState, side: TurnSide): void {
   }
 }
 
+/**
+ * One more exploration win on the career ladder. Every WINS_PER_DEPTH wins the
+ * routes run a depth further and their wild levels rise with them; catching
+ * counts as much as winning, so collectors climb too.
+ */
+function countExploreWin(s: GameState): void {
+  const b = s.battle;
+  const before = exploreDepth(b.exploreWins);
+  b.exploreWins += 1;
+  const after = exploreDepth(b.exploreWins);
+  if (after > before) {
+    pushBattleLog(
+      b,
+      `Exploration depth ${after + 1}: the routes run deeper, and their wild levels rise.`,
+      'reward',
+    );
+  }
+}
+
 /** The wild monster went down: pay out, count it, and maybe move on. */
 function handleEnemyFainted(s: GameState): void {
   const b = s.battle;
@@ -701,6 +725,7 @@ function handleEnemyFainted(s: GameState): void {
   awardBattleRewards(s, b.enemyLevel, false);
   b.cleared += 1;
   b.progress += 1;
+  if (b.via === 'explore') countExploreWin(s);
   pushBattleLog(b, `${name} fainted. +${battleCoins(b.enemyLevel, biome)} coins`, 'reward');
   b.enemy = null;
   b.enemySpec = null;
@@ -852,6 +877,7 @@ export function tryCatch(s: GameState, ballId: string): { ok: boolean; text: str
     void ball;
     s.mons.push(mon);
     s.stats.caught += 1;
+    if (b.via === 'explore') countExploreWin(s);
     registerCaught(s, b.enemySpec, mon.shiny);
     pushBattleLog(b, `Gotcha! ${entry(b.enemySpec).name} was caught (Lv.${b.enemyLevel}).`, 'catch');
     b.rewards.items['__caught'] = (b.rewards.items['__caught'] ?? 0) + 1;

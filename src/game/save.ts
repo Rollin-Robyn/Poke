@@ -164,6 +164,7 @@ function migrate(state: GameState): GameState {
   merged.battle.turn ??= 0;
   merged.battle.cleared ??= 0;
   merged.battle.biomesPassed ??= 0;
+  merged.battle.exploreWins ??= 0;
   merged.battle.activeUid ??= merged.battle.team?.[0] ?? null;
   merged.battle.biomeId ??= 'meadow';
   // a save from the real-time version carries per-monster cooldown maps and an

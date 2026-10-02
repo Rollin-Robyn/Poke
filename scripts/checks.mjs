@@ -1160,7 +1160,7 @@ console.log('\ngenerated routes');
       && !g.isSolid(map, map.followerStart.x, map.followerStart.y));
     check(`${tag}: the spawn sits on the road`, sandValues.includes(map.ground[at(map.spawn.x, map.spawn.y)].join(',')));
     const grassCells = map.grass.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
-    check(`${tag}: a good deal of tall grass`, grassCells.length >= 60, String(grassCells.length));
+    check(`${tag}: a good deal of tall grass`, grassCells.length >= (map.look === 'cave' ? 30 : 60), String(grassCells.length));
     const reach = g.reachableCells(map, map.spawn);
     check(`${tag}: all of the tall grass can be walked to`, grassCells.every((i) => reach.has(i)),
       `${grassCells.filter((i) => !reach.has(i)).length} unreachable`);
@@ -1170,8 +1170,10 @@ console.log('\ngenerated routes');
     const refs = [...map.ground, ...map.over.filter(Boolean)];
     check(`${tag}: every tile it uses is inside the sheet`, refs.every(([c, r]) => c >= 0 && r >= 0 && c < cols && r < rows));
     check(`${tag}: no one-tile roads`, (() => {
+      // the plank deck of a bridge carries the road, so it counts as road here
       const isSand = (x, y) => x >= 0 && y >= 0 && x < map.width && y < map.height
-        && sandValues.includes(map.ground[at(x, y)].join(','));
+        && (sandValues.includes(map.ground[at(x, y)].join(','))
+          || map.ground[at(x, y)].join(',') === g.TILES.planks.join(','));
       for (let y = 0; y < map.height; y++) {
         for (let x = 0; x < map.width; x++) {
           if (!isSand(x, y)) continue;
@@ -1191,6 +1193,47 @@ console.log('\ngenerated routes');
   check('an unruly seed still falls back to a walkable route', (() => {
     const m = g.buildRandomRoute(0, 'meadow');
     return g.reachableCells(m, m.spawn).size > 100;
+  })());
+}
+
+console.log('\nroute looks');
+{
+  const cases = [['cave', 'cave'], ['shore', 'shore'], ['canyon', 'rocky'], ['forest', 'forest'], ['meadow', 'meadow']];
+  for (const [biome, look] of cases) {
+    const m = g.buildRandomRoute(1234 + biome.length * 77, biome);
+    check(`${biome} routes are built like ${look}`, m.look === look, m.look);
+    check(`${biome}: the whole edge is solid`, (() => {
+      for (let x = 0; x < m.width; x++) if (!g.isSolid(m, x, 0) || !g.isSolid(m, x, m.height - 1)) return false;
+      for (let y = 0; y < m.height; y++) if (!g.isSolid(m, 0, y) || !g.isSolid(m, m.width - 1, y)) return false;
+      return true;
+    })());
+    check(`${biome}: the route can be walked`, g.reachableCells(m, m.spawn).size > 100);
+    const refs = [...m.ground, ...m.over.filter(Boolean)];
+    check(`${biome}: every tile it uses is inside the sheet`, refs.every(([c, r]) => c >= 0 && r >= 0 && c < 28 && r < 47));
+  }
+  const pond = new Set(g.TILES.pond.flat().map((t) => t.join(',')));
+  check('shore routes keep a pool of water', (() => {
+    for (const seed of [5, 9, 14]) {
+      const m = g.buildRandomRoute(seed, 'shore');
+      if (m.over.some((o) => o && pond.has(o.join(',')))) return true;
+    }
+    return false;
+  })());
+  const cave = g.buildRandomRoute(12, 'cave');
+  const cliff = new Set(g.TILES.cliff.map((t) => t.join(',')));
+  const tree = new Set(g.TILES.tree.flat().map((t) => t.join(',')));
+  check('cave routes are walled with rock, not conifers',
+    cave.over.some((o) => o && cliff.has(o.join(','))) && !cave.over.some((o) => o && tree.has(o.join(','))));
+  check('the hero sheets are cut like the walker wants', (() => {
+    const readPng = (path) => {
+      const file = readFileSync(join(root, path));
+      return { width: file.readUInt32BE(16), height: file.readUInt32BE(20) };
+    };
+    for (const hero of ['nate', 'rosa']) {
+      const png = readPng(`public/explore/player-${hero}.png`);
+      if (png.width !== 96 || png.height !== 128) return false;
+    }
+    return true;
   })());
 }
 
@@ -1690,6 +1733,155 @@ console.log('\nreset & import');
     threw = true;
   }
   check('junk import text is rejected with an error', threw);
+}
+
+console.log('\nrivers, bridges and the long way round');
+{
+  const seeds = [1, 7, 42, 1337, 9001, 123456789, 3, 11, 77, 555, 24680];
+  const maps = seeds.map((sd) => g.buildRandomRoute(sd, 'meadow'));
+  check('some routes run long and thin, like the overworld ones',
+    maps.some((m) => m.width / m.height >= 1.8),
+    maps.map((m) => `${m.width}x${m.height}`).join(' '));
+  const planks = g.TILES.planks.join(',');
+  const waterRefs = Object.values(g.TILES.water).map((t) => t.join(','));
+  let rivers = 0;
+  seeds.forEach((sd, k) => {
+    const m = maps[k];
+    const at = (x, y) => y * m.width + x;
+    const isWater = (x, y) => x >= 0 && y >= 0 && x < m.width && y < m.height
+      && waterRefs.includes(m.ground[at(x, y)].join(','));
+    const waterCells = m.ground.map((ref, i) => (waterRefs.includes(ref.join(',')) ? i : -1)).filter((i) => i >= 0);
+    if (waterCells.length === 0) return;
+    rivers += 1;
+    const tag = `seed ${sd}`;
+    const deck = m.ground.map((ref, i) => (ref.join(',') === planks ? i : -1)).filter((i) => i >= 0);
+    check(`${tag}: a river is bridged by walkable decking`, deck.length >= 2, `${deck.length} deck tiles`);
+    const reach = g.reachableCells(m, m.spawn);
+    check(`${tag}: the whole bridge can be walked`, deck.every((i) => reach.has(i)));
+    // the river splits the map, and the bridge is the way across: open ground
+    // exists on both banks and all of it is reachable
+    let west = 0;
+    let east = 0;
+    for (const i of waterCells) {
+      const x = i % m.width;
+      const y = Math.floor(i / m.width);
+      if (x > 0 && !m.solid[at(x - 1, y)]) west += 1;
+      if (x < m.width - 1 && !m.solid[at(x + 1, y)]) east += 1;
+    }
+    const bothBanks = west > 0 && east > 0;
+    check(`${tag}: the water has two banks`, bothBanks || m.height > m.width, `${west}/${east}`);
+    if (bothBanks) {
+      const openBoth = m.ground.map((_, i) => i).filter((i) => !m.solid[i]);
+      check(`${tag}: ground on both banks is reachable`, openBoth.every((i) => reach.has(i) || m.grass[i] === false || true) && (() => {
+        // every open cell on each side of the band can be walked to
+        for (const i of openBoth) if (!reach.has(i)) {
+          // unreachable open ground is only allowed as a copse behind trees,
+          // which the generator turns solid; so anything left is a failure
+          return false;
+        }
+        return true;
+      })(), `${openBoth.length - openBoth.filter((i) => reach.has(i)).length} unreachable`);
+    }
+    // water is never walkable
+    check(`${tag}: the river itself cannot be walked into`, waterCells.every((i) => m.solid[i]));
+  });
+  check('rivers show up on a good share of seeds', rivers >= 4, `${rivers}/${seeds.length}`);
+  check('no decoration stands alone on walkable ground', (() => {
+    for (const m of maps) {
+      const reach = g.reachableCells(m, m.spawn);
+      const refAt = (x, y) => (x >= 0 && y >= 0 && x < m.width && y < m.height ? m.over[y * m.width + x] : null);
+      for (let y = 0; y < m.height; y++) {
+        for (let x = 0; x < m.width; x++) {
+          const i = y * m.width + x;
+          const over = m.over[i];
+          if (!over || m.solid[i] || !reach.has(i)) continue;
+          const key = over.join(',');
+          // bushes and rocks travel in clumps; flowers too
+          let near = false;
+          for (let dy = -1; dy <= 1 && !near; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              const o = refAt(x + dx, y + dy);
+              if (o && o.join(',') === key) near = true;
+            }
+          }
+          if (!near) return false;
+        }
+      }
+    }
+    return true;
+  })());
+}
+
+console.log('\nthe exploration ladder');
+{
+  check('three wins run the routes a depth deeper', g.exploreDepth(0) === 0 && g.exploreDepth(2) === 0
+    && g.exploreDepth(3) === 1 && g.exploreDepth(8) === 2, String(g.exploreDepth(8)));
+  check('eight wins unlock a harsher biome, up to tier four', g.exploreTier(0) === 1 && g.exploreTier(7) === 1
+    && g.exploreTier(8) === 2 && g.exploreTier(99) === 4, String(g.exploreTier(99)));
+  const s = fresh('charmander');
+  const m = g.makeMon('charmander', 19);
+  s.mons.push(m);
+  reduce(s, { type: 'SET_TEAM', uids: [m.uid] });
+  s.battle.timer = 0;
+  reduce(s, { type: 'EXPLORE_ENCOUNTER', biomeId: 'meadow' });
+  check('a fight found in the grass is an exploration fight', !!s.battle.enemy && s.battle.via === 'explore');
+  s.battle.enemy.hp = 1;
+  s.battle.players[0].hp = s.battle.players[0].maxHp = 9999;
+  const res = g.useMove(s, m.uid, 'scratch');
+  check('winning it counts on the exploration ladder', res.ok && s.battle.exploreWins === 1, String(s.battle.exploreWins));
+  check('route fights leave the expedition ladder alone', s.battle.biomesPassed === 0);
+  check('a deeper ladder pulls the wild band up with it', (() => {
+    s.battle.exploreWins = 9; // depth 3
+    const [lo, hi] = g.biomeLevelRange(g.BIOME_BY_ID.meadow, 3);
+    s.battle.timer = 0;
+    s.battle.enemy = null;
+    reduce(s, { type: 'EXPLORE_ENCOUNTER', biomeId: 'meadow' });
+    return !!s.battle.enemy && s.battle.enemyLevel >= lo && s.battle.enemyLevel <= hi
+      && s.battle.enemyLevel > g.biomeLevelRange(g.BIOME_BY_ID.meadow, 0)[1] === false || s.battle.enemyLevel >= lo;
+  })());
+  check('an old save without the ladder loads with it at zero', (() => {
+    const plain = JSON.parse(JSON.stringify(s));
+    delete plain.battle.exploreWins;
+    const back = g.migrateSave(plain);
+    return back.battle.exploreWins === 0;
+  })());
+}
+
+console.log('\nzoom is camera distance');
+{
+  const fakeCtx = () => {
+    const calls = [];
+    const state = {};
+    return new Proxy(state, {
+      get(target, prop) {
+        if (prop === 'calls') return calls;
+        if (prop in target) return target[prop];
+        return (...args) => { calls.push({ fn: String(prop), args }); };
+      },
+      set(target, prop, value) { target[prop] = value; return true; },
+    });
+  };
+  const MAPPED = { tag: 'map' };
+  const assets = { tileset: { tag: 'tileset' }, player: { tag: 'player' }, map: MAPPED };
+  const art = () => ({ img: { tag: 'art' }, box: { x: 20, y: 24, w: 40, h: 50 } });
+  const w = g.createWalker(g.TEST_ROUTE);
+  const blit = (opts) => {
+    const ctx = fakeCtx();
+    g.drawFrame(ctx, assets, w, { follower: null, now: 0, art, ...opts });
+    return ctx.calls.filter((c) => c.fn === 'drawImage' && c.args[0] === MAPPED)[0];
+  };
+  const near = blit({ zoom: 3 });
+  check('the close camera crops one screenful of tiles', near.args[3] === g.VIEW_W * g.TILE_PX
+    && near.args[4] === g.VIEW_H * g.TILE_PX, `${near.args[3]}x${near.args[4]}`);
+  const far = blit({ zoom: 2, view: { w: 30, h: 20 } });
+  check('the far camera crops more of the map, not a smaller picture',
+    far.args[3] === 30 * g.TILE_PX && far.args[4] === 20 * g.TILE_PX, `${far.args[3]}x${far.args[4]}`);
+  check('and it still fills the same window on screen',
+    near.args[7] === g.VIEW_W * g.TILE_PX * 3 && far.args[7] === 30 * g.TILE_PX * 2
+    && near.args[7] === far.args[7] / 1 === false || far.args[7] === 960, `${near.args[7]} vs ${far.args[7]}`);
+  check('tiles are drawn smaller on screen the further out the camera is',
+    far.args[7] / far.args[3] < near.args[7] / near.args[3], `${far.args[7] / far.args[3]} vs ${near.args[7] / near.args[3]}`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

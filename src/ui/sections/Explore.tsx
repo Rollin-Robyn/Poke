@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame } from '../store';
 import { Bar, ItemSprite, Panel, RarityTag, Sprite, TypeTag } from '../components';
 import {
-  TEST_ROUTE, TILE_PX, advanceWalker, buildRandomRoute, createWalker, type Dir, type ExploreMap, type Walker,
+  TEST_ROUTE, TILE_PX, advanceWalker, buildRandomRoute, createWalker, exploreDepth, exploreTier,
+  type Dir, type ExploreMap, type Walker,
 } from '../../game/explore';
-import { VIEW_H, VIEW_W, drawFrame, loadAssets, paintMap, type Assets } from '../exploreDraw';
+import { VIEW_H, VIEW_W, drawFrame, loadAssets, paintMap, type Assets, type HeroId } from '../exploreDraw';
 import type { Action } from '../../game/actions';
 import { MAX_TEAM } from '../../game/state';
 import {
@@ -23,6 +24,7 @@ interface Live {
   dispatch: (a: Action) => void;
   zoom: number;
   route: ExploreMap;
+  cam: { w: number; h: number };
   follower: { species: string; shiny: boolean; form: string | null | undefined } | null;
   canEncounter: boolean;
   fighting: boolean;
@@ -53,12 +55,20 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [zoom, setZoom] = useState(2);
+  // which B2W2 hero walks the routes; remembered between visits
+  const [hero, setHero] = useState<HeroId>(() => (localStorage.getItem('poke-explore-hero') === 'rosa' ? 'rosa' : 'nate'));
   const [runToggle, setRunToggle] = useState(false);
   const [route, setRoute] = useState<ExploreMap>(TEST_ROUTE);
   const [seed, setSeed] = useState<number | null>(null);
 
   const b = state.battle;
   const zone = route;
+  // Zoom is camera distance, not picture size: the window on screen stays put
+  // while a smaller zoom fits more tiles into it (and draws them smaller).
+  const cam = {
+    w: Math.min(route.width, Math.max(9, Math.round((VIEW_W * 3) / zoom))),
+    h: Math.min(route.height, Math.max(6, Math.round((VIEW_H * 3) / zoom))),
+  };
   const team = b.team.map((u) => state.mons.find((m) => m.uid === u)).filter((m): m is NonNullable<typeof m> => !!m);
   const leader = team[0];
   const lead =
@@ -66,14 +76,17 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
     b.players.find((p) => p.hp > 0) ?? null;
   const fighting = !!b.enemy && !!b.enemySpec && b.via === 'explore';
   const biome = BIOME_BY_ID[zone.biomeId];
-  const [lo, hi] = biomeLevelRange(biome, b.biomesPassed);
+  // exploration runs its own ladder: wins in route grass deepen the band too
+  const depth = Math.max(b.biomesPassed, exploreDepth(b.exploreWins));
+  const [lo, hi] = biomeLevelRange(biome, depth);
 
   // everything the animation loop needs from this render, without restarting it
-  const live = useRef<Live>({ dispatch, zoom, route, follower: null, canEncounter: false, fighting: false });
+  const live = useRef<Live>({ dispatch, zoom, route, cam, follower: null, canEncounter: false, fighting: false });
   live.current = {
     dispatch,
     zoom,
     route,
+    cam,
     follower: leader ? { species: leader.species, shiny: leader.shiny, form: leader.form } : null,
     canEncounter: !!lead && !fighting,
     fighting,
@@ -89,7 +102,7 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
 
   useEffect(() => {
     let alive = true;
-    loadAssets()
+    loadAssets(hero)
       .then((a) => {
         if (!alive) return;
         assetsRef.current = a;
@@ -99,7 +112,7 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [hero]);
 
   useEffect(() => {
     if (base) setView({ ...base, map: paintMap(route, base.tileset) });
@@ -168,7 +181,7 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
       const w = getWalker(cfg.route);
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
-      const size = [VIEW_W * TILE_PX * cfg.zoom, VIEW_H * TILE_PX * cfg.zoom];
+      const size = [cfg.cam.w * TILE_PX * cfg.zoom, cfg.cam.h * TILE_PX * cfg.zoom];
       if (canvas.width !== size[0] || canvas.height !== size[1]) {
         canvas.width = size[0];
         canvas.height = size[1];
@@ -182,7 +195,7 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
         canEncounter: cfg.canEncounter,
       });
       if (res.encounter) cfg.dispatch({ type: 'EXPLORE_ENCOUNTER', biomeId: cfg.route.biomeId });
-      drawFrame(ctx, assets, w, { zoom: cfg.zoom, follower: cfg.follower, now });
+      drawFrame(ctx, assets, w, { zoom: cfg.zoom, view: cfg.cam, map: cfg.route, follower: cfg.follower, now });
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -193,7 +206,9 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
 
   const newRoute = () => {
     const s = (Math.random() * 0x7fffffff) | 0;
-    const biome = ROUTE_BIOMES[Math.floor(Math.random() * ROUTE_BIOMES.length)];
+    // harsher biomes open up as the exploration career grows
+    const pool = ROUTE_BIOMES.filter((bm) => ((bm as { tier?: number }).tier ?? 1) <= exploreTier(b.exploreWins));
+    const biome = pool[Math.floor(Math.random() * pool.length)];
     setSeed(s);
     setRoute(buildRandomRoute(s, biome.id));
   };
@@ -233,6 +248,12 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
             🧭 {zone.name}
           </span>
           {seed !== null && <span className="tag" title="The seed this route was grown from">#{seed.toString(36)}</span>}
+          <span
+            className="tag"
+            title="Exploration ladder: wins and catches from route fights. Every 3 wins the routes run a depth deeper and their wild levels rise; every 8 wins unlocks a harsher biome for new routes."
+          >
+            ⛰ Depth {exploreDepth(b.exploreWins) + 1} · {b.exploreWins} wins
+          </span>
           <span className="small muted">
             Tall grass uses the {biome.name} table · Lv.{lo}–{hi} wild · {fmt(w.steps)} steps · {fmt(w.encounters)} encounters
           </span>
@@ -250,8 +271,8 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
             <canvas
               ref={canvasRef}
               className={`explore-canvas ${fighting ? 'dim' : ''}`}
-              width={VIEW_W * TILE_PX * zoom}
-              height={VIEW_H * TILE_PX * zoom}
+              width={cam.w * TILE_PX * zoom}
+              height={cam.h * TILE_PX * zoom}
               aria-label="Exploration map"
             />
           )}
@@ -277,9 +298,28 @@ export function Explore({ go }: { go?: (tab: string) => void }) {
                 <input type="checkbox" checked={runToggle} onChange={(e) => setRunToggle(e.target.checked)} /> Run
               </label>
               <label className="row small" style={{ gap: 6 }}>
+                Hero
+                <select
+                  value={hero}
+                  onChange={(e) => {
+                    const next = e.target.value as HeroId;
+                    setHero(next);
+                    localStorage.setItem('poke-explore-hero', next);
+                  }}
+                >
+                  <option value="nate">Nate</option>
+                  <option value="rosa">Rosa</option>
+                </select>
+              </label>
+              <label className="row small" style={{ gap: 6 }}>
                 Zoom
                 <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
-                  {ZOOMS.map((z) => <option key={z} value={z}>{z}×</option>)}
+                  {ZOOMS.map((z) => (
+                    <option key={z} value={z}>
+                      {z}× · {Math.min(route.width, Math.max(9, Math.round((VIEW_W * 3) / z)))}×
+                      {Math.min(route.height, Math.max(6, Math.round((VIEW_H * 3) / z)))} tiles
+                    </option>
+                  ))}
                 </select>
               </label>
               <button
